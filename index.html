@@ -1,0 +1,1846 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Keisaal Blacksmith — Price Calculator</title>
+<style>
+  :root {
+    --bg:#16130f; --panel:#211c16; --panel-2:#2b241b; --panel-3:#332a1f; --line:#3d3325;
+    --ink:#ece3d2; --dim:#a99b81; --gold:#d9a441; --gold-2:#b98a34;
+    --ember:#c85a2e; --good:#6fae5f; --bad:#d06a5a; --steel:#8fb3c9;
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; font-family:"Segoe UI",system-ui,sans-serif; font-size:13px; line-height:1.4;
+    background:var(--bg); color:var(--ink);
+  }
+  .top { border-bottom:1px solid var(--line); background:var(--panel); position:sticky; top:0; z-index:20; }
+  .top-in { max-width:1180px; margin:0 auto; padding:0 14px; display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+  .brand { font-variant:small-caps; letter-spacing:.5px; color:var(--gold); font-size:16px; font-weight:700; padding:9px 0; white-space:nowrap; }
+  nav { display:flex; gap:2px; margin-left:auto; }
+  nav button {
+    background:none; border:none; border-bottom:2px solid transparent; color:var(--dim);
+    padding:10px 13px; cursor:pointer; font-size:13px; font-family:inherit;
+  }
+  nav button:hover { color:var(--ink); }
+  nav button.on { color:var(--gold); border-bottom-color:var(--gold); font-weight:600; }
+  main { max-width:1180px; margin:0 auto; padding:14px; }
+  .tab { display:none; } .tab.on { display:block; }
+  .box { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:12px 14px; margin-bottom:12px; }
+  .box > h3 { margin:0 0 9px; font-size:13px; color:var(--gold); font-variant:small-caps; letter-spacing:.5px;
+              display:flex; align-items:center; gap:8px; }
+  .box > h3 .sp { margin-left:auto; display:flex; gap:6px; }
+  .hint { color:var(--dim); font-size:11.5px; margin:-4px 0 9px; }
+  .cols { display:grid; grid-template-columns:1fr 1fr; gap:12px; align-items:start; }
+  @media(max-width:860px){ .cols { grid-template-columns:1fr; } }
+
+  table { width:100%; border-collapse:collapse; }
+  th,td { padding:4px 7px; border-bottom:1px solid var(--line); text-align:left; vertical-align:middle; }
+  th { color:var(--dim); font-size:10.5px; text-transform:uppercase; letter-spacing:.4px; font-weight:600;
+       cursor:default; white-space:nowrap; }
+  th.s { cursor:pointer; } th.s:hover { color:var(--gold); }
+  td.n,th.n { text-align:right; } tbody tr:last-child td { border-bottom:none; }
+  tbody tr:hover { background:var(--panel-2); }
+  .tot td { border-top:1px solid var(--gold-2); border-bottom:none; font-weight:700; padding-top:7px; }
+
+  input,select {
+    background:var(--panel-2); border:1px solid var(--line); color:var(--ink);
+    border-radius:5px; padding:3px 6px; font-size:12.5px; font-family:inherit; width:100%;
+  }
+  input:focus,select:focus { outline:none; border-color:var(--gold-2); }
+  input.n { text-align:right; }
+  input.bare { background:none; border-color:transparent; padding:2px 4px; }
+  input.bare:hover { border-color:var(--line); }
+  input.bare:focus { background:var(--panel-2); border-color:var(--gold-2); }
+  .w50{width:50px}.w60{width:60px}.w70{width:70px}.w80{width:80px}
+
+  button.b {
+    background:var(--panel-2); color:var(--ink); border:1px solid var(--line);
+    border-radius:5px; padding:4px 9px; cursor:pointer; font-size:12px; font-family:inherit; white-space:nowrap;
+  }
+  button.b:hover { border-color:var(--gold-2); color:var(--gold); }
+  button.b.pri { background:var(--gold-2); color:#1c1710; border-color:var(--gold); font-weight:600; }
+  button.b.pri:hover { background:var(--gold); }
+  button.x { background:none; border:none; color:var(--bad); cursor:pointer; padding:0 4px; font-size:13px; opacity:.55; }
+  button.x:hover { opacity:1; }
+
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .gold { color:var(--gold); font-weight:700; }
+  .steel { color:var(--steel); }
+  .good { color:var(--good); } .bad { color:var(--bad); } .ember { color:var(--ember); }
+  .dim { color:var(--dim); }
+  .pill { font-size:10px; padding:1px 6px; border-radius:9px; background:var(--panel-3); color:var(--dim); border:1px solid var(--line); }
+
+  details { border:1px solid var(--line); border-radius:6px; margin-bottom:5px; background:var(--panel-2); }
+  details[open] { background:var(--panel-2); border-color:var(--gold-2); }
+  summary { padding:5px 9px; cursor:pointer; display:flex; align-items:center; gap:9px; list-style:none; font-size:12.5px; }
+  summary::-webkit-details-marker { display:none; }
+  summary::before { content:"▸"; color:var(--dim); font-size:10px; }
+  details[open] summary::before { content:"▾"; color:var(--gold); }
+  summary .nm { font-weight:600; }
+  summary .sp { margin-left:auto; display:flex; gap:10px; align-items:center; }
+  .body { padding:8px 10px 10px 24px; border-top:1px solid var(--line); }
+  .ing { display:grid; grid-template-columns:1fr 58px 66px 22px; gap:6px; align-items:center; margin-bottom:4px; }
+  .ing .c { text-align:right; color:var(--dim); font-size:12px; }
+  .ing-h { display:grid; grid-template-columns:1fr 58px 66px 22px; gap:6px; font-size:10px;
+           color:var(--dim); text-transform:uppercase; letter-spacing:.4px; margin-bottom:3px; }
+  .ing-h span:nth-child(2),.ing-h span:nth-child(3){ text-align:right; }
+  .knobs { display:flex; gap:12px; flex-wrap:wrap; margin-top:8px; }
+  .k label { display:block; font-size:10px; color:var(--dim); text-transform:uppercase; letter-spacing:.4px; margin-bottom:2px; }
+  .note { font-size:11.5px; color:var(--dim); margin-top:7px; }
+  .empty { color:var(--dim); font-size:12px; padding:8px 2px; }
+  .bar { height:4px; background:var(--panel-3); border-radius:2px; overflow:hidden; min-width:44px; }
+  .bar i { display:block; height:100%; background:var(--good); }
+  .bar i.low { background:var(--ember); } .bar i.out { background:var(--bad); }
+
+  /* ── Access gate & admin panel ── */
+  body.locked .top, body.locked main { display:none; }
+  .overlay { position:fixed; inset:0; z-index:100; background:rgba(10,8,6,.93);
+    display:flex; align-items:flex-start; justify-content:center; padding:40px 16px; overflow:auto; }
+  .overlay.hidden { display:none; }
+  #admin { z-index:110; }
+  .gate-card { background:var(--panel); border:1px solid var(--line); border-radius:10px;
+    width:100%; max-width:420px; padding:22px 24px; box-shadow:0 12px 44px rgba(0,0,0,.55); }
+  .admin-card { max-width:780px; }
+  .gate-card h2 { margin:0 0 4px; color:var(--gold); font-variant:small-caps; letter-spacing:.5px; font-size:20px; }
+  .gate-card .sub { color:var(--dim); font-size:12px; margin:0 0 14px; line-height:1.5; }
+  .gate-card label { display:block; font-size:10.5px; color:var(--dim); text-transform:uppercase; letter-spacing:.4px; margin:10px 0 3px; }
+  .gate-msg { font-size:12.5px; margin-top:12px; min-height:16px; line-height:1.45; }
+  .gate-msg.err { color:var(--bad); } .gate-msg.ok { color:var(--good); } .gate-msg.dim { color:var(--dim); }
+  .gate-foot { margin-top:16px; text-align:center; }
+  .gate-foot a { color:var(--dim); font-size:11px; cursor:pointer; text-decoration:none; }
+  .gate-foot a:hover { color:var(--gold); }
+  .admin-sec { border:1px solid var(--line); border-radius:7px; padding:12px 14px; margin-bottom:12px; background:var(--panel-2); }
+  .admin-sec h4 { margin:0 0 4px; color:var(--gold); font-size:12.5px; font-variant:small-caps; letter-spacing:.5px; }
+  .admin-sec .hint { margin:0 0 9px; }
+  .admin-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px 10px; }
+  @media(max-width:560px){ .admin-grid { grid-template-columns:1fr; } }
+  .codegen-out { font-family:Consolas,monospace; font-size:16px; color:var(--gold); background:var(--bg);
+    border:1px dashed var(--gold-2); border-radius:6px; padding:9px 11px; margin-top:9px; word-break:break-all;
+    display:flex; align-items:center; gap:10px; justify-content:space-between; }
+  .admin-tbl { width:100%; border-collapse:collapse; font-size:12px; }
+  .admin-tbl th, .admin-tbl td { padding:4px 6px; border-bottom:1px solid var(--line); text-align:left; }
+  .admin-tbl th { color:var(--dim); font-size:10px; text-transform:uppercase; letter-spacing:.4px; }
+  .admin-tbl td.mono { font-family:Consolas,monospace; color:var(--dim); }
+  .badge { font-size:10px; padding:1px 6px; border-radius:8px; }
+  .badge.ok { background:rgba(111,174,95,.18); color:var(--good); }
+  .badge.exp { background:rgba(208,106,90,.18); color:var(--bad); }
+</style>
+</head>
+<body class="locked">
+
+<!-- ══ ACCESS GATE ══ -->
+<div id="gate" class="overlay">
+  <div class="gate-card">
+    <h2>⚒ Keisaal Smithy</h2>
+    <p class="sub">Weekly access tool. Enter your code to open the calculator.</p>
+    <label for="gateCode">Access code</label>
+    <input id="gateCode" placeholder="KSL-XXXX-XXXX-XXXX" autocomplete="off" spellcheck="false"
+      onkeydown="if(event.key==='Enter')gateUnlock()">
+    <div class="row" style="margin-top:12px">
+      <button class="b pri" style="flex:1" onclick="gateUnlock()">Unlock</button>
+    </div>
+    <div id="gateMsg" class="gate-msg dim"></div>
+    <div class="gate-foot"><a onclick="openAdmin()">admin</a></div>
+  </div>
+</div>
+
+<!-- ══ ADMIN PANEL ══ -->
+<div id="admin" class="overlay hidden">
+  <div class="gate-card admin-card">
+    <h2>Admin Panel</h2>
+    <p class="sub">Generate codes, manage the weekly reset, and publish to GitHub. This panel can only
+      change your repo when you supply a valid GitHub token below — it does nothing on a visitor's machine.</p>
+
+    <div id="adminLock">
+      <label id="adminPassLbl" for="adminPass">Admin passphrase</label>
+      <input id="adminPass" type="password" autocomplete="off" onkeydown="if(event.key==='Enter')adminEnter()">
+      <div class="row" style="margin-top:12px">
+        <button class="b pri" onclick="adminEnter()">Enter</button>
+        <button class="b" onclick="closeAdmin()">Cancel</button>
+      </div>
+      <div id="adminLockMsg" class="gate-msg dim"></div>
+    </div>
+
+    <div id="adminBody" style="display:none">
+      <div class="admin-sec">
+        <h4>GitHub connection</h4>
+        <p class="hint">A fine-grained token with <strong>Contents: Read &amp; write</strong> on this one repo.
+          Stored only in this browser — never in the file.</p>
+        <div class="admin-grid">
+          <div><label style="font-size:10.5px;color:var(--dim)">Owner (user/org)</label><input id="ghOwner" spellcheck="false" placeholder="your-github-name"></div>
+          <div><label style="font-size:10.5px;color:var(--dim)">Repository</label><input id="ghRepo" spellcheck="false" placeholder="keisaal-calculator"></div>
+          <div><label style="font-size:10.5px;color:var(--dim)">Branch</label><input id="ghBranch" spellcheck="false" placeholder="main"></div>
+          <div><label style="font-size:10.5px;color:var(--dim)">Status file path</label><input id="ghPath" spellcheck="false" placeholder="status.json"></div>
+        </div>
+        <label style="font-size:10.5px;color:var(--dim);display:block;margin-top:8px">GitHub token</label>
+        <input id="ghToken" type="password" spellcheck="false" placeholder="github_pat_…">
+        <div class="row" style="margin-top:10px">
+          <button class="b" onclick="adminSaveCfg()">Save settings</button>
+          <button class="b" onclick="adminLoad()">Load from GitHub</button>
+          <button class="b pri" onclick="adminPublish()">Publish to GitHub</button>
+        </div>
+        <div id="ghMsg" class="gate-msg dim"></div>
+      </div>
+
+      <div class="admin-sec">
+        <h4>Weekly reset</h4>
+        <p class="hint">Current week: <strong id="wkNow">1</strong>. Advancing it expires every code paid only through the previous week. Remember to <em>Publish</em> after changing it.</p>
+        <div class="row">
+          <button class="b pri" onclick="adminAdvanceWeek()">Advance week ▸</button>
+          <span class="dim" style="font-size:11px">set:</span>
+          <input id="wkSet" class="n w60" type="number" min="1" step="1">
+          <button class="b" onclick="adminSetWeek()">Set</button>
+        </div>
+      </div>
+
+      <div class="admin-sec">
+        <h4>Generate access code</h4>
+        <div class="row" style="flex-wrap:wrap">
+          <input id="genNote" placeholder="buyer note (private, e.g. Ragnar)" spellcheck="false" style="min-width:180px;flex:1">
+          <span class="dim" style="font-size:11px">weeks:</span>
+          <input id="genWeeks" class="n w60" type="number" min="1" step="1" value="1">
+          <button class="b pri" onclick="genCode()">Generate</button>
+        </div>
+        <div id="genOut" class="codegen-out" style="display:none"></div>
+        <p class="hint" style="margin-top:8px">The plaintext code shows once — copy it to the buyer now. Only its hash is stored/published. Then <em>Publish</em> to activate it.</p>
+      </div>
+
+      <div class="admin-sec">
+        <h4>Active codes <span id="codeCount" class="dim" style="font-size:11px"></span></h4>
+        <table class="admin-tbl"><thead><tr><th>Note</th><th>Hash</th><th>Valid thru wk</th><th>Status</th><th></th></tr></thead>
+          <tbody id="codeRows"></tbody></table>
+        <div class="row" style="margin-top:10px">
+          <button class="b" onclick="downloadBackup()">Download backup</button>
+          <button class="b" style="margin-left:auto;color:var(--bad)" onclick="killAll()">Kill switch — remove all</button>
+        </div>
+      </div>
+
+      <div class="row" style="justify-content:flex-end">
+        <button class="b" onclick="closeAdmin()">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="top"><div class="top-in">
+  <div class="brand">⚒ Keisaal Smithy</div>
+  <nav>
+    <button id="t-craft"     class="on" onclick="tab('craft')">Craft</button>
+    <button id="t-database"  onclick="tab('database')">Database</button>
+    <button id="t-inventory" onclick="tab('inventory')">Inventory</button>
+    <button id="t-sales"     onclick="tab('sales')">Sales</button>
+    <button id="t-add"       onclick="tab('add')">Add</button>
+    <button id="t-recipes"   onclick="tab('recipes')">Recipes</button>
+    <button id="t-settings"  onclick="tab('settings')">Settings</button>
+  </nav>
+</div></div>
+
+<main>
+
+<!-- ══ CRAFT ══ -->
+<div id="tab-craft" class="tab on">
+  <div class="box">
+    <h3>Quick Quote <span class="sp"><span class="pill">instant price, no order</span></span></h3>
+    <div class="row">
+      <input id="qqItem" list="itemDL" style="min-width:240px" placeholder="Type an item…" autocomplete="off" oninput="renderQuote()">
+      <button class="b" onclick="document.getElementById('qqItem').value='';renderQuote()">Clear</button>
+    </div>
+    <div id="qqResult" class="note"></div>
+  </div>
+  <div class="box">
+    <h3>New Order</h3>
+    <div class="row">
+      <input id="addItem" list="itemDL" style="min-width:240px" placeholder="Type to search…" autocomplete="off"
+        onkeydown="if(event.key==='Enter')orderAdd()">
+      <datalist id="itemDL"></datalist>
+      <input id="addQty" class="n w60" type="number" min="1" step="1" value="1"
+        onkeydown="if(event.key==='Enter')orderAdd()">
+      <button class="b pri" onclick="orderAdd()">+ Add</button>
+      <button class="b" onclick="orderClear()">Clear</button>
+      <label class="row" style="gap:5px;margin-left:8px">Customer
+        <select id="custSel" style="width:auto" onchange="data.settings.customer=this.value; render()"></select></label>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <span class="dim" style="font-size:11px">Preset</span>
+      <select id="presetSel" style="width:auto"></select>
+      <button class="b" onclick="loadPreset()" title="Add this preset's items to the order">Load</button>
+      <button class="b" onclick="delPreset()" title="Delete selected preset">✕</button>
+      <button class="b" onclick="savePreset()" title="Save the current order as a reusable preset">Save order as preset…</button>
+    </div>
+    <div id="custNote" class="note" style="margin-top:6px"></div>
+  </div>
+
+  <div class="box" id="tillBox" style="display:none">
+    <h3>Till <span class="sp"><button class="b" onclick="resetTill()">Reset</button></span></h3>
+    <div class="row" id="tillRow" style="gap:16px"></div>
+  </div>
+
+  <div class="cols">
+    <div>
+      <div class="box">
+        <h3>Order <span class="sp"><span class="pill" id="orderCount">0 items</span>
+          <button class="b pri" onclick="checkout()" title="Sell order &amp; deduct materials from inventory">✓ Checkout</button></span></h3>
+        <table id="orderTbl">
+          <thead><tr>
+            <th>Item</th><th class="n">Qty</th><th class="n">Cost</th>
+            <th class="n">Price</th><th class="n">Line</th><th></th>
+          </tr></thead>
+          <tbody id="orderBody"></tbody>
+        </table>
+        <div id="orderEmpty" class="empty">No items yet — add one above.</div>
+      </div>
+    </div>
+
+    <div>
+      <div class="box">
+        <h3>Materials Needed <span class="sp"><button class="b" id="buyBtn" style="display:none" onclick="buyShortfalls()">Buy missing</button></span></h3>
+        <p class="hint">Raw materials for the order (held ingots already deducted), checked against stock.</p>
+        <table><thead><tr>
+          <th>Material</th><th class="n">Need</th><th class="n">Have</th><th class="n">Short</th><th class="n">Buy cost</th>
+        </tr></thead><tbody id="needBody"></tbody></table>
+        <div id="needEmpty" class="empty">Add items to see what you'll need.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ DATABASE ══ -->
+<div id="tab-database" class="tab">
+  <div class="box">
+    <h3>Item Database
+      <span class="sp">
+        <select id="dbFam"  style="width:110px" onchange="renderDatabase()"></select>
+        <select id="dbSlot" style="width:110px" onchange="renderDatabase()"></select>
+        <input id="dbSearch" placeholder="Search…" style="width:130px" oninput="renderDatabase()">
+        <span class="pill" id="dbCount"></span>
+      </span>
+    </h3>
+    <p class="hint">Everything you can make, with live costs. Click a column to sort. Edit market price and category inline.</p>
+    <table><thead><tr>
+      <th class="s" onclick="dbSort('name')">Item</th>
+      <th class="s" onclick="dbSort('fam')">Material</th>
+      <th class="s" onclick="dbSort('slot')">Slot</th>
+      <th class="s n" onclick="dbSort('canmake')">Can make</th>
+      <th class="s n" onclick="dbSort('mat')">Materials</th>
+      <th class="s n" onclick="dbSort('labor')">Labor</th>
+      <th class="s n" onclick="dbSort('price')">Your price</th>
+      <th class="s n" onclick="dbSort('market')">Market</th>
+      <th class="s n" onclick="dbSort('profit')">Profit</th>
+      <th class="s n" onclick="dbSort('margin')">Margin</th>
+    </tr></thead><tbody id="dbBody"></tbody></table>
+  </div>
+
+  <div class="box">
+    <h3>Intermediates</h3>
+    <table><thead><tr>
+      <th>Component</th><th class="n">Cost / unit</th><th>Made from</th>
+    </tr></thead><tbody id="dbInterBody"></tbody></table>
+  </div>
+</div>
+
+<!-- ══ INVENTORY ══ -->
+<div id="tab-inventory" class="tab">
+  <div class="cols">
+    <div class="box">
+      <h3>Raw Materials <span class="sp"><span class="pill" id="invValue"></span></span></h3>
+      <p class="hint">Set <strong>Stock</strong> to what you're holding. <strong>Buy</strong> logs a purchase and adds to stock.</p>
+      <table><thead><tr>
+        <th>Material</th><th class="n">Price</th><th class="n">Stock</th><th class="n">Value</th><th class="n">Buy</th>
+      </tr></thead><tbody id="invBody"></tbody></table>
+    </div>
+    <div class="box">
+      <h3>Crafted Components</h3>
+      <p class="hint">Ingots and strips you've already smelted and are holding.</p>
+      <table><thead><tr>
+        <th>Component</th><th class="n">Cost/unit</th><th class="n">Stock</th><th class="n">Value</th>
+      </tr></thead><tbody id="invInterBody"></tbody></table>
+      <div class="note" id="invTotal"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SALES ══ -->
+<div id="tab-sales" class="tab">
+  <div class="box">
+    <h3>Till <span class="sp"><button class="b" onclick="resetTill()">Reset totals</button></span></h3>
+    <div class="row" id="tillRow2" style="gap:16px"></div>
+    <div class="note">Revenue, cost and profit accumulate across every checkout. "Spent on stock" tracks one-click restocks.</div>
+  </div>
+  <div class="box" id="insightsBox" style="display:none">
+    <h3>Insights</h3>
+    <div class="cols">
+      <div><div class="dim" style="font-size:11px;margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px">Top customers · by profit</div>
+        <table><tbody id="custStats"></tbody></table></div>
+      <div><div class="dim" style="font-size:11px;margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px">Top items · by quantity sold</div>
+        <table><tbody id="itemStats"></tbody></table></div>
+    </div>
+  </div>
+  <div class="box">
+    <h3>Sales Log <span class="sp"><span class="pill" id="salesCount"></span><button class="b" onclick="clearSales()">Clear log</button></span></h3>
+    <table><thead><tr>
+      <th>When</th><th>Customer</th><th>Items</th><th class="n">Revenue</th><th class="n">Profit</th><th></th>
+    </tr></thead><tbody id="salesBody"></tbody></table>
+    <div id="salesEmpty" class="empty">No sales yet — check out an order on the Craft tab.</div>
+  </div>
+</div>
+
+<!-- ══ ADD ══ -->
+<div id="tab-add" class="tab">
+  <div class="box">
+    <h3>Bulk Import <span class="sp"><span class="pill">paste many items at once</span></span></h3>
+    <p class="hint">
+      One item per line: <code>Name | ingredients | market price</code> (price optional).
+      Ingredients accept either <code>2 Iron ingot, 1 Leather strip</code> or the game's own
+      <code>Iron Ingot (3), 4 Steel Ingot (1)</code> format. Send me forge screenshots and I'll
+      hand you a block to paste straight in here.
+    </p>
+    <textarea id="bulk" rows="7" spellcheck="false"
+      style="width:100%;background:var(--panel-2);border:1px solid var(--line);color:var(--ink);
+             border-radius:5px;padding:6px 8px;font-family:Consolas,monospace;font-size:12px;resize:vertical"
+      placeholder="Iron Helmet | 2 Iron ingot, 1 Leather strip | 60&#10;Iron Boots | 3 Iron ingot, 2 Leather strip | 25&#10;Iron Gauntlets | 2 Iron ingot, 1 Leather strip | 25"
+      oninput="previewBulk()"></textarea>
+    <div id="bulkPreview" class="note"></div>
+    <div class="row" style="margin-top:7px">
+      <button class="b pri" onclick="commitBulk()">+ Import all</button>
+      <button class="b" onclick="document.getElementById('bulk').value='';previewBulk()">Clear</button>
+    </div>
+  </div>
+
+  <div class="box">
+    <h3>Single Item <span class="sp"><span class="pill">one at a time</span></span></h3>
+    <p class="hint">
+      Type the item name and its requirements. Bracketed carry-counts are ignored automatically,
+      so the game's own wording works as-is.
+    </p>
+    <div class="row" style="margin-bottom:7px">
+      <input id="pName" placeholder="Item name  (e.g. Northern Iron Helmet)" style="max-width:280px">
+      <input id="pVal" class="n w80" type="number" placeholder="market" title="Market price (optional)">
+    </div>
+    <input id="pReq" placeholder="Requires: Iron Ingot (3), 4 Steel Ingot (1), 3 Leather Strips (12)"
+           oninput="previewPaste()" onkeydown="if(event.key==='Enter')commitPaste()">
+    <div id="pPreview" class="note"></div>
+    <div class="row" style="margin-top:7px">
+      <button class="b pri" onclick="commitPaste()">+ Add item</button>
+      <button class="b" onclick="document.getElementById('pName').value='';document.getElementById('pReq').value='';document.getElementById('pVal').value='';previewPaste()">Clear</button>
+      <span class="dim" style="font-size:11.5px">Unknown ingredients get created as raw materials at 0g — set their price in Recipes.</span>
+    </div>
+  </div>
+
+  <div class="cols">
+    <div class="box">
+      <h3>Variant Generator</h3>
+      <p class="hint">
+        Your game has cosmetic variants that share a base recipe (Northern / Rugged / Runic / Wrought Iron
+        all weigh 30 and value 125). Pick a base, list prefixes, generate them all at once.
+      </p>
+      <div class="row" style="margin-bottom:7px">
+        <select id="vBase" style="max-width:220px"></select>
+      </div>
+      <input id="vPrefix" value="Northern, Rugged, Runic, Wrought" placeholder="Northern, Rugged, …">
+      <div class="row" style="margin-top:7px">
+        <button class="b pri" onclick="genVariants()">Generate variants</button>
+      </div>
+      <div id="vNote" class="note"></div>
+    </div>
+
+    <div class="box">
+      <h3>Verified Recipe Pack</h3>
+      <p class="hint">
+        Vanilla recipes I could confirm from public sources. Adds only what's missing —
+        your existing items, prices and market data are left untouched.
+      </p>
+      <div id="packList" class="note"></div>
+      <div class="row" style="margin-top:8px">
+        <button class="b pri" onclick="loadPack()">+ Add missing recipes</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="box">
+    <h3>Blank Entry</h3>
+    <div class="row">
+      <button class="b" onclick="addRecipe(); tab('recipes')">+ Empty item</button>
+      <button class="b" onclick="addIntermediate(); tab('recipes')">+ Empty component</button>
+      <button class="b" onclick="addMaterial(); tab('recipes')">+ Empty material</button>
+      <span class="dim" style="font-size:11.5px">Opens the Recipes tab so you can fill it in.</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══ RECIPES ══ -->
+<div id="tab-recipes" class="tab">
+  <div class="box">
+    <h3>Raw Materials <span class="sp"><button class="b" onclick="addMaterial()">+ Material</button></span></h3>
+    <table><thead><tr><th>Name</th><th class="n">Price / unit</th><th></th></tr></thead>
+      <tbody id="matBody"></tbody></table>
+  </div>
+
+  <div class="box">
+    <h3 class="steel">Intermediates <span class="sp"><button class="b" onclick="addIntermediate()">+ Component</button></span></h3>
+    <p class="hint"><strong>Yield</strong> = units produced per batch (1 leather → 4 strips). Cost/unit = (ingredients + labor) ÷ yield.</p>
+    <div id="interList"></div>
+  </div>
+
+  <div class="box">
+    <h3>Items <span class="sp"><button class="b" onclick="addRecipe()">+ Item</button></span></h3>
+    <p class="hint">Price = (ingredients + labor) × markup × demand, then rounded.</p>
+    <div id="itemList"></div>
+  </div>
+</div>
+
+<!-- ══ SETTINGS ══ -->
+<div id="tab-settings" class="tab">
+  <div class="cols">
+    <div class="box">
+      <h3>Pricing</h3>
+      <div class="knobs">
+        <div class="k"><label>Currency</label><input id="currency" class="w60"></div>
+        <div class="k"><label>Default labor</label><input id="defaultLabor" class="n w70" type="number" min="0" step="1"></div>
+        <div class="k" style="align-self:end"><span class="dim" style="font-size:11px">Markups are per-customer →</span></div>
+        <div class="k"><label>Round to</label><input id="roundTo" class="n w70" type="number" min="0" step="1"></div>
+      </div>
+      <div class="note">Round to 0 disables rounding. Costs always show exact values.</div>
+    </div>
+
+    <div class="box">
+      <h3>Customers <span class="sp"><button class="b" onclick="addCustomer()">+ Customer</button></span></h3>
+      <p class="hint">Each customer is one markup — lower it for people you charge less. Chosen on the Craft page. The first row (Standard) sets the price shown in the Database.</p>
+      <table><thead><tr><th>Name</th><th class="n">Markup ×</th><th>Notes</th><th></th></tr></thead>
+        <tbody id="custBody"></tbody></table>
+    </div>
+
+    <div class="box">
+      <h3>Bulk Discount <span class="sp"><button class="b" onclick="addTier()">+ Tier</button></span></h3>
+      <p class="hint">Applied to the whole order, based on the total number of items in it. Highest matching tier wins.</p>
+      <label class="row" style="gap:6px;margin:-2px 0 8px;cursor:pointer"><input type="checkbox" id="stackBulk" style="width:auto" onchange="data.settings.stackBulk=this.checked; render()"> Also give bulk discount to non-standard customers</label>
+      <table><thead><tr><th class="n">Qty ≥</th><th class="n">Discount %</th><th></th></tr></thead>
+        <tbody id="tierBody"></tbody></table>
+    </div>
+  </div>
+
+  <div class="box">
+    <h3>Backup &amp; Restore</h3>
+    <div class="row">
+      <button class="b" onclick="exportData()">⬇ Export</button>
+      <button class="b" onclick="document.getElementById('impF').click()">⬆ Import</button>
+      <input id="impF" type="file" accept="application/json" style="display:none" onchange="importData(this)">
+      <button class="b" onclick="resetAll()">↺ Reset to defaults</button>
+      <span class="pill" id="saveState">saved</span>
+    </div>
+    <div class="note">Data auto-saves in this browser only. Export before switching devices or clearing cache.</div>
+  </div>
+</div>
+
+</main>
+
+<script>
+/* ═════════ Data ═════════ */
+const uid = () => Math.random().toString(36).slice(2,9);
+const L = (ingredient, qty) => ({ ingredient, qty });
+
+const DEFAULT = {
+  settings: { currency:"g", defaultLabor:0, markup:2, markupFriend:1.5, roundTo:1, friend:false, customer:null, stackBulk:true,
+              tiers:[{qty:5,pct:5},{qty:10,pct:10},{qty:25,pct:15}] },
+  till: { revenue:0, cost:0, sales:0, items:0, purchases:0 },
+  customers: [ {id:uid(),name:"Standard",markup:2,discount:0}, {id:uid(),name:"Friend",markup:1.5,discount:0} ],
+  sales: [],
+  materials: [
+    { id:uid(), name:"Iron ore",       price:0, stock:0 },
+    { id:uid(), name:"Corundum ore",   price:0, stock:0 },
+    { id:uid(), name:"Silver ore",     price:0, stock:0 },
+    { id:uid(), name:"Gold ore",       price:0, stock:0 },
+    { id:uid(), name:"Leather",        price:0, stock:0 },
+    { id:uid(), name:"Poor charcoal",  price:0, stock:0 },
+    { id:uid(), name:"Charcoal",       price:0, stock:0 },
+    { id:uid(), name:"Charcoal brick", price:0, stock:0 },
+    { id:uid(), name:"Coke",           price:0, stock:0 }
+  ],
+  intermediates: [
+    { id:uid(), name:"Iron ingot",     yield:1, labor:0, stock:0,
+      lines:[ L("Iron ore",6), L("Poor charcoal",6) ] },
+    { id:uid(), name:"Corundum ingot", yield:1, labor:0, stock:0,
+      lines:[ L("Corundum ore",8), L("Poor charcoal",8) ] },
+    { id:uid(), name:"Steel ingot",    yield:1, labor:0, stock:0,
+      lines:[ L("Corundum ore",3), L("Iron ore",3), L("Charcoal",6) ] },
+    { id:uid(), name:"Silver ingot",   yield:1, labor:0, stock:0,
+      lines:[ L("Silver ore",6), L("Charcoal",6) ] },
+    { id:uid(), name:"Gold ingot",     yield:1, labor:0, stock:0,
+      lines:[ L("Gold ore",6), L("Charcoal",6) ] },
+    { id:uid(), name:"Leather strip",  yield:4, labor:0, stock:0,
+      lines:[ L("Leather",1) ] }
+  ],
+  // Full crafting database — baked into the file so it survives even if browser storage clears.
+  // Confirmed by in-game screenshots + UESP/Fextralife; variant families share their base recipe.
+  recipes: [
+    { id:uid(), name:"Steel Armor", value:null, labor:null, demand:1, lines:[ L("Steel ingot",4), L("Iron ingot",1), L("Leather strip",3) ] },
+    { id:uid(), name:"Rugged Steel Armor", value:null, labor:null, demand:1, lines:[ L("Steel ingot",4), L("Iron ingot",1), L("Leather strip",3) ] },
+    { id:uid(), name:"Steel Helmet", value:null, labor:null, demand:1, lines:[ L("Steel ingot",2), L("Iron ingot",1), L("Leather strip",2) ] },
+    { id:uid(), name:"Steel Horned Helmet", value:null, labor:null, demand:1, lines:[ L("Steel ingot",2), L("Iron ingot",1), L("Leather strip",2) ] },
+    { id:uid(), name:"Steel Shield", value:null, labor:null, demand:1, lines:[ L("Steel ingot",3), L("Iron ingot",1), L("Leather strip",1) ] },
+    { id:uid(), name:"Steel Imperial Gauntlets", value:null, labor:null, demand:1, lines:[ L("Steel ingot",2), L("Iron ingot",1), L("Leather strip",2) ] },
+    { id:uid(), name:"Steel Nordic Gauntlets", value:null, labor:null, demand:1, lines:[ L("Steel ingot",2), L("Iron ingot",1), L("Leather strip",2) ] },
+    { id:uid(), name:"Steel Cuffed Boots", value:null, labor:null, demand:1, lines:[ L("Steel ingot",3), L("Iron ingot",1), L("Leather strip",2) ] },
+    { id:uid(), name:"Steel Shin Boots", value:null, labor:null, demand:1, lines:[ L("Steel ingot",3), L("Iron ingot",1), L("Leather strip",2) ] },
+    { id:uid(), name:"Steel Dagger", value:null, labor:null, demand:1, lines:[ L("Steel ingot",1), L("Iron ingot",1), L("Leather strip",1) ] },
+    { id:uid(), name:"Steel Sword", value:null, labor:null, demand:1, lines:[ L("Steel ingot",2), L("Iron ingot",1), L("Leather strip",1) ] },
+    { id:uid(), name:"Steel War Axe", value:null, labor:null, demand:1, lines:[ L("Steel ingot",2), L("Iron ingot",1), L("Leather strip",2) ] },
+    { id:uid(), name:"Steel Mace", value:null, labor:null, demand:1, lines:[ L("Steel ingot",3), L("Iron ingot",1), L("Leather strip",1) ] },
+    { id:uid(), name:"Steel Greatsword", value:null, labor:null, demand:1, lines:[ L("Steel ingot",4), L("Iron ingot",2), L("Leather strip",3) ] },
+    { id:uid(), name:"Steel Battleaxe", value:null, labor:null, demand:1, lines:[ L("Steel ingot",4), L("Iron ingot",1), L("Leather strip",2) ] },
+    { id:uid(), name:"Steel Warhammer", value:null, labor:null, demand:1, lines:[ L("Steel ingot",4), L("Iron ingot",1), L("Leather strip",3) ] },
+    { id:uid(), name:"Iron Armor", value:null, labor:null, demand:1, lines:[ L("Iron ingot",5), L("Leather strip",3) ] },
+    { id:uid(), name:"Iron Boots", value:null, labor:null, demand:1, lines:[ L("Iron ingot",3), L("Leather strip",2) ] },
+    { id:uid(), name:"Iron Gauntlets", value:null, labor:null, demand:1, lines:[ L("Iron ingot",2), L("Leather strip",2) ] },
+    { id:uid(), name:"Iron Helmet", value:null, labor:null, demand:1, lines:[ L("Iron ingot",3), L("Leather strip",2) ] },
+    { id:uid(), name:"Iron Shield", value:null, labor:null, demand:1, lines:[ L("Iron ingot",4), L("Leather strip",1) ] },
+    { id:uid(), name:"Northern Iron Armor", value:null, labor:null, demand:1, lines:[ L("Iron ingot",5), L("Leather strip",3) ] },
+    { id:uid(), name:"Northern Iron Boots", value:null, labor:null, demand:1, lines:[ L("Iron ingot",3), L("Leather strip",2) ] },
+    { id:uid(), name:"Northern Iron Gauntlets", value:null, labor:null, demand:1, lines:[ L("Iron ingot",2), L("Leather strip",2) ] },
+    { id:uid(), name:"Northern Iron Helmet", value:null, labor:null, demand:1, lines:[ L("Iron ingot",3), L("Leather strip",2) ] },
+    { id:uid(), name:"Northern Iron Shield", value:null, labor:null, demand:1, lines:[ L("Iron ingot",4), L("Leather strip",1) ] },
+    { id:uid(), name:"Rugged Iron Armor", value:null, labor:null, demand:1, lines:[ L("Iron ingot",5), L("Leather strip",3) ] },
+    { id:uid(), name:"Rugged Iron Boots", value:null, labor:null, demand:1, lines:[ L("Iron ingot",3), L("Leather strip",2) ] },
+    { id:uid(), name:"Rugged Iron Gauntlets", value:null, labor:null, demand:1, lines:[ L("Iron ingot",2), L("Leather strip",2) ] },
+    { id:uid(), name:"Rugged Iron Helmet", value:null, labor:null, demand:1, lines:[ L("Iron ingot",3), L("Leather strip",2) ] },
+    { id:uid(), name:"Rugged Iron Shield", value:null, labor:null, demand:1, lines:[ L("Iron ingot",4), L("Leather strip",1) ] },
+    { id:uid(), name:"Runic Iron Armor", value:null, labor:null, demand:1, lines:[ L("Iron ingot",5), L("Leather strip",3) ] },
+    { id:uid(), name:"Runic Iron Boots", value:null, labor:null, demand:1, lines:[ L("Iron ingot",3), L("Leather strip",2) ] },
+    { id:uid(), name:"Runic Iron Gauntlets", value:null, labor:null, demand:1, lines:[ L("Iron ingot",2), L("Leather strip",2) ] },
+    { id:uid(), name:"Runic Iron Helmet", value:null, labor:null, demand:1, lines:[ L("Iron ingot",3), L("Leather strip",2) ] },
+    { id:uid(), name:"Wrought Iron Armor", value:null, labor:null, demand:1, lines:[ L("Iron ingot",5), L("Leather strip",3) ] },
+    { id:uid(), name:"Wrought Iron Boots", value:null, labor:null, demand:1, lines:[ L("Iron ingot",3), L("Leather strip",2) ] },
+    { id:uid(), name:"Wrought Iron Gauntlets", value:null, labor:null, demand:1, lines:[ L("Iron ingot",2), L("Leather strip",2) ] },
+    { id:uid(), name:"Wrought Iron Helmet", value:null, labor:null, demand:1, lines:[ L("Iron ingot",3), L("Leather strip",2) ] },
+    { id:uid(), name:"Wrought Iron Shield", value:null, labor:null, demand:1, lines:[ L("Iron ingot",4), L("Leather strip",1) ] },
+    { id:uid(), name:"Iron Dagger", value:null, labor:null, demand:1, lines:[ L("Iron ingot",1), L("Leather strip",1) ] },
+    { id:uid(), name:"Iron Sword", value:null, labor:null, demand:1, lines:[ L("Iron ingot",2), L("Leather strip",1) ] },
+    { id:uid(), name:"Iron War Axe", value:null, labor:null, demand:1, lines:[ L("Iron ingot",2), L("Leather strip",2) ] },
+    { id:uid(), name:"Iron Mace", value:null, labor:null, demand:1, lines:[ L("Iron ingot",3), L("Leather strip",2) ] },
+    { id:uid(), name:"Iron Greatsword", value:null, labor:null, demand:1, lines:[ L("Iron ingot",4), L("Leather strip",2) ] },
+    { id:uid(), name:"Iron Battleaxe", value:null, labor:null, demand:1, lines:[ L("Iron ingot",4), L("Leather strip",3) ] },
+    { id:uid(), name:"Iron Warhammer", value:null, labor:null, demand:1, lines:[ L("Iron ingot",4), L("Leather strip",4) ] },
+    { id:uid(), name:"Banded Iron Armor", value:null, labor:null, demand:1, lines:[ L("Iron ingot",5), L("Leather strip",3), L("Corundum ingot",1) ] },
+    { id:uid(), name:"Banded Northern Iron Armor", value:null, labor:null, demand:1, lines:[ L("Iron ingot",5), L("Leather strip",3), L("Corundum ingot",1) ] },
+    { id:uid(), name:"Banded Rugged Iron Armor", value:null, labor:null, demand:1, lines:[ L("Iron ingot",5), L("Leather strip",3), L("Corundum ingot",1) ] },
+    { id:uid(), name:"Banded Runic Iron Armor", value:null, labor:null, demand:1, lines:[ L("Iron ingot",5), L("Leather strip",3), L("Corundum ingot",1) ] },
+    { id:uid(), name:"Banded Wrought Iron Armor", value:null, labor:null, demand:1, lines:[ L("Iron ingot",5), L("Leather strip",3), L("Corundum ingot",1) ] },
+    { id:uid(), name:"Banded Iron Shield", value:null, labor:null, demand:1, lines:[ L("Iron ingot",4), L("Leather strip",1), L("Corundum ingot",1) ] },
+    { id:uid(), name:"Banded Northern Iron Shield", value:null, labor:null, demand:1, lines:[ L("Iron ingot",4), L("Leather strip",1), L("Corundum ingot",1) ] },
+    { id:uid(), name:"Banded Rugged Iron Shield", value:null, labor:null, demand:1, lines:[ L("Iron ingot",4), L("Leather strip",1), L("Corundum ingot",1) ] },
+    { id:uid(), name:"Rugged Steel Helmet", value:null, labor:null, demand:1, lines:[ L("Steel ingot",2), L("Iron ingot",1), L("Leather strip",2) ] },
+    { id:uid(), name:"Northern Steel Helmet", value:null, labor:null, demand:1, lines:[ L("Steel ingot",2), L("Iron ingot",1), L("Leather strip",2) ] },
+    { id:uid(), name:"Northern Steel Armor", value:null, labor:null, demand:1, lines:[ L("Steel ingot",4), L("Iron ingot",1), L("Leather strip",3) ] },
+    { id:uid(), name:"Northern Steel Boots", value:null, labor:null, demand:1, lines:[ L("Steel ingot",3), L("Iron ingot",1), L("Leather strip",2) ] },
+    { id:uid(), name:"Northern Steel Gauntlets", value:null, labor:null, demand:1, lines:[ L("Steel ingot",2), L("Iron ingot",1), L("Leather strip",2) ] },
+    { id:uid(), name:"Rugged Steel Boots", value:null, labor:null, demand:1, lines:[ L("Steel ingot",3), L("Iron ingot",1), L("Leather strip",2) ] },
+    { id:uid(), name:"Rugged Steel Gauntlets", value:null, labor:null, demand:1, lines:[ L("Steel ingot",2), L("Iron ingot",1), L("Leather strip",2) ] },
+    { id:uid(), name:"Rugged Steel Shield", value:null, labor:null, demand:1, lines:[ L("Steel ingot",3), L("Iron ingot",1), L("Leather strip",1) ] },
+    { id:uid(), name:"Northern Iron Dagger", value:null, labor:null, demand:1, lines:[ L("Iron ingot",1), L("Leather strip",1) ] },
+    { id:uid(), name:"Northern Iron Sword", value:null, labor:null, demand:1, lines:[ L("Iron ingot",2), L("Leather strip",1) ] },
+    { id:uid(), name:"Northern Iron War Axe", value:null, labor:null, demand:1, lines:[ L("Iron ingot",2), L("Leather strip",2) ] },
+    { id:uid(), name:"Northern Iron Mace", value:null, labor:null, demand:1, lines:[ L("Iron ingot",3), L("Leather strip",2) ] },
+    { id:uid(), name:"Northern Iron Greatsword", value:null, labor:null, demand:1, lines:[ L("Iron ingot",4), L("Leather strip",2) ] },
+    { id:uid(), name:"Northern Iron Battleaxe", value:null, labor:null, demand:1, lines:[ L("Iron ingot",4), L("Leather strip",3) ] },
+    { id:uid(), name:"Northern Iron Warhammer", value:null, labor:null, demand:1, lines:[ L("Iron ingot",4), L("Leather strip",4) ] },
+    { id:uid(), name:"Leather Bracers", value:null, labor:null, demand:1, lines:[ L("Leather",1), L("Leather strip",2) ] },
+  ],
+  order: [],
+  presets: []
+};
+
+const KEY = "keisaal_calc_v7";
+let data = load();
+let dbSortKey = "name", dbSortDir = 1;
+
+function load(){
+  try { const r = localStorage.getItem(KEY); if (r) return fix(JSON.parse(r)); } catch(e){}
+  return fix(structuredClone(DEFAULT));
+}
+function fix(d){
+  d.settings = d.settings || {}; if (!d.settings.tiers) d.settings.tiers = [];
+  d.materials ||= []; d.intermediates ||= []; d.recipes ||= []; d.order ||= []; d.presets ||= [];
+  d.settings.markup ??= 2; d.settings.markupFriend ??= 1.5; d.settings.friend ??= false;
+  d.till = d.till || { revenue:0, cost:0, sales:0, items:0, purchases:0 }; d.till.purchases ??= 0;
+  d.sales = d.sales || [];
+  if(!d.customers || !d.customers.length){
+    d.customers = [ {id:uid(),name:"Standard",markup:+d.settings.markup||2,discount:0},
+                    {id:uid(),name:"Friend",markup:+d.settings.markupFriend||1.5,discount:0} ];
+    d.settings.customer = d.settings.friend ? d.customers[1].id : d.customers[0].id;
+  }
+  d.settings.customer ??= d.customers[0].id;
+  d.settings.stackBulk ??= true;
+  d.customers.forEach(c => c.note ??= "");
+  d.materials.forEach(x => x.stock ??= 0);
+  d.intermediates.forEach(x => x.stock ??= 0);
+  return d;
+}
+// Storage can be unavailable (private mode, data: URLs, blocked cookies). Never let that
+// throw mid-render — the app stays usable, the user just gets told it isn't persisting.
+function save(){
+  const s = document.getElementById("saveState");
+  try {
+    localStorage.setItem(KEY, JSON.stringify(data));
+    if (s){ s.textContent = "saved ✓"; s.style.color = "var(--good)"; }
+  } catch (e) {
+    if (s){ s.textContent = "NOT SAVING — open the file directly"; s.style.color = "var(--bad)"; }
+  }
+}
+
+/* ═════════ Cost engine ═════════ */
+function unitCost(name, seen = new Set()){
+  const raw = data.materials.find(x => x.name === name);
+  if (raw) return +raw.price || 0;
+  const it = data.intermediates.find(x => x.name === name);
+  if (!it || seen.has(name)) return 0;          // missing, or cycle
+  seen.add(name);
+  const ing = (it.lines||[]).reduce((s,l) => s + unitCost(l.ingredient, seen) * (+l.qty||0), 0);
+  const y = +it.yield || 1;
+  return (ing + (+it.labor||0)) / (y > 0 ? y : 1);
+}
+function stdMarkup(){ return (data.customers && data.customers[0]) ? (+data.customers[0].markup||0) : (+data.settings.markup||2); }
+function activeCustomer(){
+  return (data.customers||[]).find(c=>c.id===data.settings.customer)
+    || (data.customers||[])[0] || {id:null, name:"Standard", markup:+data.settings.markup||2, discount:0};
+}
+function calc(r, markup){
+  const mat = (r.lines||[]).reduce((s,l) => s + unitCost(l.ingredient) * (+l.qty||0), 0);
+  const labor = (r.labor === null || r.labor === "") ? (+data.settings.defaultLabor||0) : (+r.labor||0);
+  const mk = (markup === undefined || markup === null) ? stdMarkup() : (+markup||0);
+  const demand = +r.demand || 0;
+  return { mat, labor, markup:mk, demand, price:(mat + labor) * mk * demand };
+}
+// Recursively reduce anything down to raw materials.
+function explode(name, qty, acc = {}, seen = new Set()){
+  const raw = data.materials.find(x => x.name === name);
+  if (raw){ acc[name] = (acc[name]||0) + qty; return acc; }
+  const it = data.intermediates.find(x => x.name === name);
+  if (!it || seen.has(name)) return acc;
+  const y = +it.yield || 1;
+  const batches = qty / (y > 0 ? y : 1);
+  (it.lines||[]).forEach(l => explode(l.ingredient, batches * (+l.qty||0), acc, new Set([...seen, name])));
+  return acc;
+}
+function tierFor(qty){
+  let best = 0;
+  (data.settings.tiers||[]).forEach(t => { if (qty >= (+t.qty||0)) best = Math.max(best, +t.pct||0); });
+  return best;
+}
+
+/* ═════════ Format ═════════ */
+const cur = () => data.settings.currency || "";
+function money(n){                                   // rounded — sale prices
+  const r = +data.settings.roundTo || 0;
+  let v = r > 0 ? Math.round(n/r)*r : n;
+  return cur() + (Math.round(v*100)/100).toLocaleString();
+}
+function exact(n){                                   // unrounded — costs
+  return cur() + (Math.round(n*100)/100).toLocaleString(undefined,{maximumFractionDigits:2});
+}
+const esc = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+const ceil = n => Math.ceil(Math.round(n*1000)/1000);
+
+/* ═════════ Tabs ═════════ */
+function tab(n){
+  ["craft","database","inventory","sales","add","recipes","settings"].forEach(t => {
+    document.getElementById("tab-"+t).classList.toggle("on", t===n);
+    document.getElementById("t-"+t).classList.toggle("on", t===n);
+  });
+  render();
+}
+
+/* ═════════ Craft ═════════ */
+// Grouped by material family — a flat 200-entry list would be unusable.
+function fillAddItem(){
+  const dl = document.getElementById("itemDL"); if(!dl) return;
+  dl.innerHTML = data.recipes.slice().sort((a,b)=>a.name.localeCompare(b.name))
+    .map(r => `<option value="${esc(r.name)}">${esc(r.fam||"")}</option>`).join("");
+}
+function resolveItem(typed){
+  if(!typed) return null;
+  let r = data.recipes.find(x => x.name === typed);                 // exact
+  if(!r) r = data.recipes.find(x => norm(x.name) === norm(typed));  // loose
+  if(!r){ const hits = data.recipes.filter(x => x.name.toLowerCase().includes(typed.toLowerCase()));
+          if(hits.length === 1) r = hits[0]; }                       // unique substring
+  return r;
+}
+function addToOrder(name, qty){
+  const ex = data.order.find(o => o.item === name);
+  if (ex) ex.qty += qty; else data.order.push({ id:uid(), item:name, qty });
+}
+function orderAdd(){
+  const box = document.getElementById("addItem");
+  const qty = Math.max(1, parseInt(document.getElementById("addQty").value)||1);
+  const r = resolveItem((box.value||"").trim());
+  if(!r){ alert("No item matches \""+box.value+"\". Start typing and pick from the list."); return; }
+  addToOrder(r.name, qty);
+  box.value = ""; box.focus();
+  render();
+}
+function orderClear(){ data.order = []; render(); }
+function renderQuote(){
+  const el=document.getElementById("qqResult"); if(!el) return;
+  const box=document.getElementById("qqItem"); const typed=((box&&box.value)||"").trim();
+  if(!typed){ el.innerHTML=""; return; }
+  const r=resolveItem(typed);
+  if(!r){ el.innerHTML='<span class="dim">No exact match yet — keep typing or pick from the list.</span>'; return; }
+  const base=calc(r);
+  const rows=(data.customers||[]).map(c=>{
+    const p=calc(r,c.markup).price, prof=p-base.mat;
+    return '<tr><td>'+esc(c.name)+'</td><td class="n gold">'+money(p)+'</td><td class="n '+(prof>=0?'dim':'bad')+'">'+money(prof)+' profit</td></tr>';
+  }).join("");
+  el.innerHTML='<div style="margin:4px 0 6px"><strong>'+esc(r.name)+'</strong> <span class="dim">· material cost '+exact(base.mat)+'</span></div>'
+    +'<table style="max-width:360px"><tbody>'+rows+'</tbody></table>';
+}
+function fillPresetSel(){
+  const sel = document.getElementById("presetSel"); if(!sel) return;
+  const keep = sel.value;
+  const ps = data.presets||[];
+  sel.innerHTML = ps.length ? ps.map(p=>`<option value="${p.id}">${esc(p.name)} (${p.items.reduce((a,b)=>a+b.qty,0)})</option>`).join("")
+                            : '<option value="">— none saved —</option>';
+  if(keep) sel.value = keep;
+}
+function savePreset(){
+  if(!data.order.length){ alert("Add items to the order first, then save it as a preset."); return; }
+  const name = (prompt("Preset name (e.g. Full Steel Armor Set):")||"").trim();
+  if(!name) return;
+  const items = data.order.map(o=>({item:o.item, qty:o.qty}));
+  const existing = data.presets.find(p=>norm(p.name)===norm(name));
+  if(existing){ if(!confirm('"'+name+'" exists. Overwrite it?')) return; existing.items = items; }
+  else data.presets.push({ id:uid(), name, items });
+  render();
+}
+function loadPreset(){
+  const sel = document.getElementById("presetSel"); const p = (data.presets||[]).find(x=>x.id===sel.value);
+  if(!p){ alert("No preset selected."); return; }
+  let added=0, missing=[];
+  p.items.forEach(it=>{ if(data.recipes.find(r=>r.name===it.item)){ addToOrder(it.item, it.qty); added++; } else missing.push(it.item); });
+  render();
+  if(missing.length) alert("Loaded "+added+" line(s). Skipped (no longer in database): "+missing.join(", "));
+}
+function delPreset(){
+  const sel = document.getElementById("presetSel"); const i = (data.presets||[]).findIndex(x=>x.id===sel.value);
+  if(i<0){ alert("No preset selected."); return; }
+  if(!confirm('Delete preset "'+data.presets[i].name+'"?')) return;
+  data.presets.splice(i,1); render();
+}
+function orderDel(i){ data.order.splice(i,1); render(); }
+function orderQty(i,v){ data.order[i].qty = Math.max(0, parseFloat(v)||0); render(); }
+function orderOverride(i,v){ data.order[i].override = (v===""||v==null)?null:(parseFloat(v)||0); render(); }
+
+// Whole-order totals. Bulk discount keys off TOTAL item count, not any single line.
+function linePrice(o, markup){
+  const r=data.recipes.find(x=>x.name===o.item);
+  const c=r?calc(r,markup):{price:0,mat:0};
+  const has=(o.override!==undefined && o.override!==null && o.override!=="");
+  return { r, mat:c.mat, formula:c.price, unit: has?(+o.override||0):c.price, overridden:has };
+}
+function orderTotals(cust){
+  const markup = cust ? cust.markup : stdMarkup();
+  let sub=0, cost=0, qtyTotal=0;
+  data.order.forEach(o=>{ const lp=linePrice(o,markup); if(!lp.r) return;
+    sub+=lp.unit*o.qty; cost+=lp.mat*o.qty; qtyTotal+=o.qty; });
+  const isBase = !cust || !data.customers[0] || cust.id==null || cust.id===data.customers[0].id;
+  const stack = data.settings.stackBulk !== false;
+  const rawBulk = tierFor(qtyTotal);
+  const bulkPct = (stack || isBase) ? rawBulk : 0;
+  const disc = sub*bulkPct/100;
+  return { sub, disc, pct:bulkPct, bulkPct, custPct:0,
+           bulkSuppressed:(rawBulk>0 && bulkPct===0), total:sub-disc, cost, qtyTotal };
+}
+// Max units craftable from current stock (spends held intermediates first, rest from raw).
+function maxCraftable(name){
+  const rawStock={}; data.materials.forEach(m=>rawStock[m.name]=+m.stock||0);
+  const baseInter={}; data.intermediates.forEach(it=>baseInter[it.name]=+it.stock||0);
+  const rec=data.recipes.find(x=>x.name===name); if(!rec||!(rec.lines||[]).length) return 0;
+  function feasible(N){
+    const avail={...baseInter}, raw={};
+    const need=(nm,qty,seen)=>{
+      if(data.materials.find(x=>x.name===nm)){ raw[nm]=(raw[nm]||0)+qty; return; }
+      const it=data.intermediates.find(x=>x.name===nm); if(!it||seen.has(nm)) return;
+      const use=Math.min(qty, avail[nm]||0); avail[nm]=(avail[nm]||0)-use;
+      const rem=qty-use; if(rem>1e-9){ const y=+it.yield||1, b=rem/(y>0?y:1);
+        (it.lines||[]).forEach(l=>need(l.ingredient, b*(+l.qty||0), new Set([...seen,nm]))); }
+    };
+    (rec.lines||[]).forEach(l=>need(l.ingredient,(+l.qty||0)*N,new Set()));
+    for(const k in raw) if(raw[k] > (rawStock[k]||0)+1e-9) return false;
+    return true;
+  }
+  if(!feasible(1)) return 0;
+  let lo=1, hi=2;
+  while(hi<1000000 && feasible(hi)) hi*=2;
+  while(lo+1<hi){ const mid=Math.floor((lo+hi)/2); if(feasible(mid)) lo=mid; else hi=mid; }
+  return lo;
+}
+// Stock-aware: spend held ingots/strips first, break the rest down to raw ore.
+function planConsumption(){
+  const inter={}, raw={}, avail={};
+  data.intermediates.forEach(it=>avail[it.name]=+it.stock||0);
+  function need(name, qty){
+    if(data.materials.find(x=>x.name===name)){ raw[name]=(raw[name]||0)+qty; return; }
+    const it=data.intermediates.find(x=>x.name===name); if(!it) return;
+    const use=Math.min(qty, avail[name]||0);
+    if(use>0){ inter[name]=(inter[name]||0)+use; avail[name]-=use; }
+    const remain=qty-use;
+    if(remain>1e-9){ const y=+it.yield||1, batches=remain/(y>0?y:1);
+      (it.lines||[]).forEach(l=>need(l.ingredient, batches*(+l.qty||0))); }
+  }
+  data.order.forEach(o=>{ const r=data.recipes.find(x=>x.name===o.item);
+    if(r)(r.lines||[]).forEach(l=>need(l.ingredient,(+l.qty||0)*o.qty)); });
+  return { inter, raw };
+}
+// Checkout = the order was crafted and sold: consume stock, bank the sale, clear order.
+function checkout(){
+  if(!data.order.length){ alert("Order is empty."); return; }
+  const cust=activeCustomer(), t=orderTotals(cust), plan=planConsumption();
+  const short=[];
+  Object.entries(plan.raw).forEach(([k,q])=>{ const m=data.materials.find(x=>x.name===k);
+    const have=m?+m.stock||0:0; if(q>have+1e-9) short.push("  "+k+": need "+ceil(q)+", have "+have); });
+  const items=data.order.reduce((s,o)=>s+o.qty,0);
+  let msg="Checkout "+items+" item(s) — "+cust.name
+    +"\n\nRevenue "+money(t.total)+"\nMaterial cost "+exact(t.cost)+"\nProfit "+money(t.total-t.cost);
+  if(short.length) msg+="\n\n⚠ Short on stock (will floor at 0):\n"+short.join("\n");
+  msg+="\n\nProceed? This deducts materials from inventory and logs the sale.";
+  if(!confirm(msg)) return;
+  Object.entries(plan.inter).forEach(([k,q])=>{ const it=data.intermediates.find(x=>x.name===k);
+    if(it) it.stock=Math.max(0,(+it.stock||0)-q); });
+  Object.entries(plan.raw).forEach(([k,q])=>{ const m=data.materials.find(x=>x.name===k);
+    if(m) m.stock=Math.max(0,(+m.stock||0)-q); });
+  data.till.revenue+=t.total; data.till.cost+=t.cost; data.till.sales+=1; data.till.items+=items;
+  data.sales.push({ id:uid(), t:Date.now(), customer:cust.name,
+    items:data.order.map(o=>({name:o.item, qty:o.qty})),
+    revenue:t.total, cost:t.cost, profit:t.total-t.cost, bulkPct:t.bulkPct, custPct:t.custPct,
+    consumed:{ inter:{...plan.inter}, raw:{...plan.raw} } });
+  data.order=[]; render();
+}
+function resetTill(){
+  if(!confirm("Reset the till to zero? This clears your recorded sales totals.")) return;
+  data.till={ revenue:0, cost:0, sales:0, items:0 }; render();
+}
+function tillHTML(){
+  const t=data.till||{revenue:0,cost:0,sales:0,items:0,purchases:0}; const profit=t.revenue-t.cost;
+  return '<span class="pill">'+t.sales+' sale(s)</span>'
+    +'<span class="dim">'+t.items+' items</span>'
+    +'<span>Revenue <span class="gold">'+money(t.revenue)+'</span></span>'
+    +'<span>Cost <span class="dim">'+exact(t.cost)+'</span></span>'
+    +'<span>Profit <span class="'+(profit>=0?'good':'bad')+'">'+money(profit)+'</span></span>'
+    +((+t.purchases)? '<span class="dim">Spent on stock '+exact(t.purchases)+'</span>':'');
+}
+function renderTill(){
+  const t=data.till||{sales:0};
+  const box=document.getElementById("tillBox"), row=document.getElementById("tillRow");
+  if(box){ box.style.display = t.sales>0 ? "" : "none"; if(row) row.innerHTML = tillHTML(); }
+  const row2=document.getElementById("tillRow2"); if(row2) row2.innerHTML = tillHTML();
+  renderSales();
+  renderInsights();
+}
+function renderSales(){
+  const body=document.getElementById("salesBody"); if(!body) return;
+  const empty=document.getElementById("salesEmpty");
+  const s=data.sales||[];
+  const cnt=document.getElementById("salesCount"); if(cnt) cnt.textContent=s.length+" sale(s)";
+  if(empty) empty.style.display = s.length? "none":"";
+  body.parentElement.style.display = s.length? "":"none";
+  body.innerHTML = s.slice().reverse().map(sale=>{
+    const when=new Date(sale.t).toLocaleString();
+    const items=(sale.items||[]).map(it=>it.qty+"× "+esc(it.name)).join(", ");
+    const totPct=(sale.bulkPct||0)+(sale.custPct||0);
+    const disc=totPct? ' <span class="pill">−'+totPct+'%</span>':'';
+    return '<tr><td class="dim" style="white-space:nowrap">'+when+'</td>'
+      +'<td>'+esc(sale.customer||"—")+disc+'</td>'
+      +'<td class="dim">'+items+'</td>'
+      +'<td class="n gold">'+money(sale.revenue)+'</td>'
+      +'<td class="n '+(sale.profit>=0?'good':'bad')+'">'+money(sale.profit)+'</td>'
+      +'<td><button class="x" title="Undo — restores stock" onclick="undoSale(\''+sale.id+'\')">↺</button></td></tr>';
+  }).join("");
+}
+function undoSale(id){
+  const i=(data.sales||[]).findIndex(x=>x.id===id); if(i<0) return;
+  const sale=data.sales[i];
+  if(!confirm("Undo this sale? Restores the consumed materials to inventory and removes it from the log.")) return;
+  Object.entries((sale.consumed&&sale.consumed.inter)||{}).forEach(([k,q])=>{ const it=data.intermediates.find(x=>x.name===k); if(it) it.stock=(+it.stock||0)+q; });
+  Object.entries((sale.consumed&&sale.consumed.raw)||{}).forEach(([k,q])=>{ const m=data.materials.find(x=>x.name===k); if(m) m.stock=(+m.stock||0)+q; });
+  data.till.revenue-=sale.revenue; data.till.cost-=sale.cost;
+  data.till.sales=Math.max(0,data.till.sales-1);
+  data.till.items=Math.max(0,data.till.items-(sale.items||[]).reduce((a,b)=>a+b.qty,0));
+  data.sales.splice(i,1); render();
+}
+function clearSales(){ if(!confirm("Clear the sales log? Till totals are kept.")) return; data.sales=[]; render(); }
+function renderInsights(){
+  const box=document.getElementById("insightsBox"); if(!box) return;
+  const sales=data.sales||[];
+  box.style.display = sales.length ? "" : "none";
+  if(!sales.length) return;
+  const byCust={}, byItem={};
+  sales.forEach(s=>{
+    const c=byCust[s.customer]||(byCust[s.customer]={rev:0,profit:0,n:0}); c.rev+=s.revenue; c.profit+=s.profit; c.n++;
+    (s.items||[]).forEach(it=>{ const m=byItem[it.name]||(byItem[it.name]={qty:0,n:0}); m.qty+=it.qty; m.n++; });
+  });
+  const cust=Object.entries(byCust).sort((a,b)=>b[1].profit-a[1].profit).slice(0,6);
+  const item=Object.entries(byItem).sort((a,b)=>b[1].qty-a[1].qty).slice(0,6);
+  document.getElementById("custStats").innerHTML = cust.map(([nm,v])=>
+    '<tr><td>'+esc(nm)+'</td><td class="n dim">'+v.n+' sale(s)</td><td class="n gold">'+money(v.profit)+'</td></tr>').join("");
+  document.getElementById("itemStats").innerHTML = item.map(([nm,v])=>
+    '<tr><td>'+esc(nm)+'</td><td class="n gold">'+v.qty+'×</td></tr>').join("");
+}
+
+function renderCraft(){
+  const body = document.getElementById("orderBody"), tbl = document.getElementById("orderTbl");
+  const empty = document.getElementById("orderEmpty");
+  body.innerHTML = "";
+  const has = data.order.length > 0;
+  tbl.style.display = has ? "" : "none";
+  empty.style.display = has ? "none" : "";
+  document.getElementById("orderCount").textContent =
+    data.order.reduce((s,o)=>s+o.qty,0) + " items";
+
+  const cust = activeCustomer();
+  const cn = document.getElementById("custNote"); if (cn) cn.textContent = cust.note ? ("📝 "+cust.note) : "";
+  const sel = document.getElementById("custSel");
+  if (sel) sel.innerHTML = (data.customers||[]).map(c=>
+    '<option value="'+c.id+'"'+(c.id===cust.id?' selected':'')+'>'+esc(c.name)+' (×'+c.markup+')</option>').join("");
+  data.order.forEach((o,i) => {
+    const r = data.recipes.find(x => x.name === o.item);
+    if (!r){ body.insertAdjacentHTML("beforeend",
+      `<tr><td class="bad">${esc(o.item)} — missing</td><td class="n" colspan="4"></td>
+        <td><button class="x" onclick="orderDel(${i})">✕</button></td></tr>`); return; }
+    const lp = linePrice(o, cust.markup);
+    body.insertAdjacentHTML("beforeend", `
+      <tr>
+        <td>${esc(o.item)}</td>
+        <td class="n"><input class="bare n w50" type="number" min="0" step="1" value="${o.qty}"
+              onchange="orderQty(${i},this.value)"></td>
+        <td class="n dim">${exact(lp.mat)}</td>
+        <td class="n"><input class="bare n w70${lp.overridden?' good':''}" type="number" min="0" step="1"
+              title="${lp.overridden?'Haggled price — clear to restore '+money(lp.formula):'Formula price — type a number to haggle'}"
+              placeholder="${money(lp.formula)}" value="${lp.overridden?lp.unit:''}"
+              onchange="orderOverride(${i},this.value)"></td>
+        <td class="n gold">${money(lp.unit*o.qty)}</td>
+        <td><button class="x" onclick="orderDel(${i})">✕</button></td>
+      </tr>`);
+  });
+  if (has){
+    const t = orderTotals(cust), profit = t.total - t.cost;
+    const dl = 'Bulk −'+t.bulkPct+'% · all '+t.qtyTotal+' items';
+    body.insertAdjacentHTML("beforeend", `
+      <tr class="tot"><td colspan="4">Subtotal${cust.name!=="Standard"?' <span class="pill">'+esc(cust.name)+'</span>':''}</td><td class="n">${money(t.sub)}</td><td></td></tr>
+      ${t.disc>0?`<tr><td colspan="4" class="good">${dl}</td><td class="n good">−${money(t.disc)}</td><td></td></tr>`:""}
+      ${t.bulkSuppressed?`<tr><td colspan="6" class="dim" style="font-size:11px">Bulk discount off for ${esc(cust.name)} (their markup is the deal). Toggle in Settings › Bulk Discount.</td></tr>`:""}
+      <tr class="tot"><td colspan="4" style="font-size:14px">Total</td>
+          <td class="n gold" style="font-size:15px">${money(t.total)}</td><td></td></tr>
+      <tr><td colspan="4" class="dim">Material cost ${exact(t.cost)} · Profit</td>
+          <td class="n ${profit>=0?'good':'bad'}">${money(profit)}</td><td></td></tr>`);
+  }
+  renderNeeds();
+}
+
+function renderNeeds(){
+  const body = document.getElementById("needBody");
+  const empty = document.getElementById("needEmpty");
+  body.innerHTML = "";
+  const buyBtn = document.getElementById("buyBtn");
+  const acc = planConsumption().raw;
+  const keys = Object.keys(acc).filter(k => acc[k] > 1e-4).sort();
+  const has = keys.length > 0;
+  body.parentElement.style.display = has ? "" : "none";
+  empty.style.display = has ? "none" : "";
+  if (!has){ if(buyBtn) buyBtn.style.display="none"; return; }
+
+  let buyTotal = 0, anyShort = false;
+  keys.forEach(k => {
+    const need = ceil(acc[k]);
+    const mat = data.materials.find(x => x.name === k);
+    const have = mat ? (+mat.stock||0) : 0;
+    const short = Math.max(0, need - have);
+    const cost = short * (mat ? +mat.price||0 : 0);
+    if (short>0) anyShort = true;
+    buyTotal += cost;
+    body.insertAdjacentHTML("beforeend", `
+      <tr>
+        <td>${esc(k)}</td>
+        <td class="n">${need.toLocaleString()}</td>
+        <td class="n dim">${have.toLocaleString()}</td>
+        <td class="n ${short>0?"bad":"good"}">${short>0?short.toLocaleString():"✓"}</td>
+        <td class="n ${short>0?"":"dim"}">${short>0?exact(cost):"—"}</td>
+      </tr>`);
+  });
+  body.insertAdjacentHTML("beforeend",
+    `<tr class="tot"><td colspan="4">Cost to buy what's missing</td><td class="n gold">${exact(buyTotal)}</td></tr>`);
+  if (buyBtn) buyBtn.style.display = anyShort ? "" : "none";
+}
+function buyShortfalls(){
+  const raw = planConsumption().raw;
+  let spent=0, bought=0;
+  Object.keys(raw).forEach(k=>{
+    const m = data.materials.find(x=>x.name===k); if(!m) return;
+    const need = ceil(raw[k]); const have=+m.stock||0; const short=Math.max(0,need-have);
+    if(short>0){ m.stock=have+short; spent+=short*(+m.price||0); bought+=short; }
+  });
+  if(bought<=0){ alert("Nothing short — you already have everything for this order."); return; }
+  data.till.purchases = (+data.till.purchases||0) + spent;
+  render();
+  alert("Bought "+bought+" unit(s) of raw material for "+exact(spent)+" and added to stock.");
+}
+
+/* ═════════ Database ═════════ */
+function dbSort(k){ dbSortDir = (dbSortKey === k) ? -dbSortDir : 1; dbSortKey = k; renderDatabase(); }
+// Rebuild the filter dropdowns from whatever categories actually exist, preserving the selection.
+function fillFilter(id, values){
+  const s = document.getElementById(id), keep = s.value;
+  s.innerHTML = `<option value="">All ${id==="dbFam"?"materials":"slots"}</option>`
+    + values.map(v => `<option>${esc(v)}</option>`).join("");
+  if (keep && values.includes(keep)) s.value = keep;
+}
+function renderDatabase(){
+  classifyAll();
+  fillFilter("dbFam",  [...new Set(data.recipes.map(r=>r.fam ||"Other"))].sort());
+  fillFilter("dbSlot", [...new Set(data.recipes.map(r=>r.slot||"Other"))].sort());
+  const q    = (document.getElementById("dbSearch").value||"").toLowerCase();
+  const fFam = document.getElementById("dbFam").value;
+  const fSlot= document.getElementById("dbSlot").value;
+
+  const rows = data.recipes
+    .map(r => {
+      const c = calc(r);
+      const market = (r.value == null || r.value === "") ? null : +r.value;
+      const profit = market === null ? null : market - c.mat;
+      const margin = (market === null || c.mat <= 0) ? null : (profit / c.mat) * 100;
+      return { r, name:r.name, fam:r.fam||"Other", slot:r.slot||"Other", canmake:maxCraftable(r.name),
+               mat:c.mat, labor:c.labor, price:c.price, market, profit, margin };
+    })
+    .filter(x => x.name.toLowerCase().includes(q)
+              && (!fFam  || x.fam  === fFam)
+              && (!fSlot || x.slot === fSlot))
+    .sort((a,b) => {
+      const A = a[dbSortKey], B = b[dbSortKey];
+      if (A === null) return 1; if (B === null) return -1;
+      return (typeof A === "string" ? A.localeCompare(B) : A - B) * dbSortDir;
+    });
+
+  document.getElementById("dbCount").textContent =
+    rows.length + (rows.length === data.recipes.length ? " items" : ` of ${data.recipes.length}`);
+  document.getElementById("dbBody").innerHTML = rows.map(x => {
+    const idx = data.recipes.indexOf(x.r);
+    const mCol = x.margin === null ? "dim" : (x.margin <= 0 ? "bad" : x.margin < 50 ? "ember" : "good");
+    return `<tr>
+      <td>${esc(x.name)}</td>
+      <td><input class="bare" style="width:82px" value="${esc(x.fam)}"
+            onchange="data.recipes[${idx}].fam=this.value.trim()||'Other'; render()"></td>
+      <td><input class="bare" style="width:74px" value="${esc(x.slot)}"
+            onchange="data.recipes[${idx}].slot=this.value.trim()||'Other'; render()"></td>
+      <td class="n ${x.canmake>0?'good':'dim'}">${x.canmake>=1000000?'∞':x.canmake}</td>
+      <td class="n dim">${exact(x.mat)}</td>
+      <td class="n dim">${exact(x.labor)}</td>
+      <td class="n gold">${money(x.price)}</td>
+      <td class="n"><input class="bare n w70" type="number" min="0" step="1" placeholder="—"
+            value="${x.market===null?"":x.market}"
+            onchange="data.recipes[${idx}].value=(this.value===''?null:(parseFloat(this.value)||0)); render()"></td>
+      <td class="n ${x.profit===null?"dim":(x.profit>0?"good":"bad")}">${x.profit===null?"—":(x.profit>0?"+":"")+exact(x.profit)}</td>
+      <td class="n ${mCol}">${x.margin===null?"—":Math.round(x.margin)+"%"}</td>
+    </tr>`;
+  }).join("");
+
+  document.getElementById("dbInterBody").innerHTML = data.intermediates.map(it => {
+    const from = (it.lines||[]).map(l => `${l.qty}× ${esc(l.ingredient)}`).join(" + ") || "—";
+    const y = +it.yield||1;
+    return `<tr>
+      <td class="steel">${esc(it.name)}</td>
+      <td class="n">${exact(unitCost(it.name))}</td>
+      <td class="dim">${from}${y>1?` <span class="pill">yields ${y}</span>`:""}</td>
+    </tr>`;
+  }).join("");
+}
+
+/* ═════════ Inventory ═════════ */
+function buyMat(i, v){
+  const n = parseFloat(v)||0;
+  if (n > 0){ data.materials[i].stock = (+data.materials[i].stock||0) + n; render(); }
+}
+function renderInventory(){
+  let rawVal = 0;
+  document.getElementById("invBody").innerHTML = data.materials.map((m,i) => {
+    const v = (+m.stock||0) * (+m.price||0); rawVal += v;
+    return `<tr>
+      <td>${esc(m.name)}</td>
+      <td class="n dim">${exact(+m.price||0)}</td>
+      <td class="n"><input class="bare n w70" type="number" min="0" step="1" value="${+m.stock||0}"
+            onchange="data.materials[${i}].stock=parseFloat(this.value)||0; render()"></td>
+      <td class="n">${exact(v)}</td>
+      <td class="n"><input class="n w60" type="number" min="0" step="1" placeholder="+"
+            onchange="buyMat(${i},this.value); this.value=''"></td>
+    </tr>`;
+  }).join("");
+  document.getElementById("invValue").textContent = "stock worth " + exact(rawVal);
+
+  let intVal = 0;
+  document.getElementById("invInterBody").innerHTML = data.intermediates.map((it,i) => {
+    const c = unitCost(it.name), v = (+it.stock||0) * c; intVal += v;
+    return `<tr>
+      <td class="steel">${esc(it.name)}</td>
+      <td class="n dim">${exact(c)}</td>
+      <td class="n"><input class="bare n w70" type="number" min="0" step="1" value="${+it.stock||0}"
+            onchange="data.intermediates[${i}].stock=parseFloat(this.value)||0; render()"></td>
+      <td class="n">${exact(v)}</td>
+    </tr>`;
+  }).join("");
+  document.getElementById("invTotal").innerHTML =
+    `Raw ${exact(rawVal)} + components ${exact(intVal)} = <span class="gold">${exact(rawVal+intVal)}</span> total holdings`;
+}
+
+/* ═════════ Add tab ═════════ */
+// Verified vanilla recipes. Sources: UESP / Fextralife / Fandom, cross-checked.
+// Steel armor set additionally corroborated by the in-game Rugged Steel Armor screenshot.
+const PACK = [
+  ["Iron Armor",              [["Iron ingot",5],["Leather strip",3]]],
+  ["Iron Dagger",             [["Iron ingot",1],["Leather strip",1]]],
+  ["Iron Sword",              [["Iron ingot",2],["Leather strip",1]]],
+  ["Iron War Axe",            [["Iron ingot",2],["Leather strip",2]]],
+  ["Iron Mace",               [["Iron ingot",3],["Leather strip",2]]],
+  ["Iron Greatsword",         [["Iron ingot",4],["Leather strip",2]]],
+  ["Iron Battleaxe",          [["Iron ingot",4],["Leather strip",3]]],
+  ["Iron Warhammer",          [["Iron ingot",4],["Leather strip",4]]],
+  ["Steel Dagger",            [["Steel ingot",1],["Iron ingot",1],["Leather strip",1]]],
+  ["Steel Sword",             [["Steel ingot",2],["Iron ingot",1],["Leather strip",1]]],
+  ["Steel War Axe",           [["Steel ingot",2],["Iron ingot",1],["Leather strip",2]]],
+  ["Steel Mace",              [["Steel ingot",3],["Iron ingot",1],["Leather strip",1]]],
+  ["Steel Greatsword",        [["Steel ingot",4],["Iron ingot",2],["Leather strip",3]]],
+  ["Steel Battleaxe",         [["Steel ingot",4],["Iron ingot",1],["Leather strip",2]]],
+  ["Steel Warhammer",         [["Steel ingot",4],["Iron ingot",1],["Leather strip",3]]],
+  ["Leather Bracers",         [["Leather",1],["Leather strip",2]]]
+];
+function renderPack(){
+  const missing = PACK.filter(([n]) => !data.recipes.some(r => norm(r.name) === norm(n)));
+  const el = document.getElementById("packList");
+  if (!el) return;
+  el.innerHTML = missing.length === 0
+    ? `<span class="good">✓ All ${PACK.length} verified recipes already loaded.</span>`
+    : `<strong>${missing.length}</strong> of ${PACK.length} not yet in your list:<br>`
+      + `<span class="dim">${missing.map(([n]) => esc(n)).join(" · ")}</span>`;
+}
+function loadPack(){
+  let n = 0;
+  PACK.forEach(([name, lines]) => {
+    if (data.recipes.some(r => norm(r.name) === norm(name))) return;
+    data.recipes.push({ id:uid(), name, value:null, labor:null, demand:1,
+                        lines: lines.map(([i,q]) => L(i,q)) });
+    n++;
+  });
+  render();
+  alert(n ? `Added ${n} recipe${n>1?"s":""}.` : "Nothing to add — all already present.");
+}
+
+// Loose name matching so "Leather Strips" finds "Leather strip".
+const norm = s => String(s).toLowerCase().trim().replace(/\s+/g," ").replace(/s$/,"");
+function matchIng(name){
+  const n = norm(name);
+  return [...data.materials.map(x=>x.name), ...data.intermediates.map(x=>x.name)]
+    .find(x => norm(x) === n) || null;
+}
+// Parses the game's own format: "Requires: Iron Ingot (3), 4 Steel Ingot (1), 3 Leather Strips (12)"
+// Leading number = quantity needed (absent means 1). Parenthetical = amount carried, discarded.
+function parseRequires(text){
+  return String(text).replace(/^\s*requires\s*:?/i, "")
+    .split(/[,\n]|\s+\+\s+/).map(s => s.trim()).filter(Boolean)
+    .map(part => {
+      const clean = part.replace(/\([^)]*\)/g, "").trim();
+      const m = clean.match(/^(\d+)\s*[x×]?\s+(.+)$/);
+      const qty  = m ? parseInt(m[1], 10) : 1;
+      const raw  = (m ? m[2] : clean).trim().replace(/[.;]$/, "");
+      return raw ? { raw, qty, matched: matchIng(raw) } : null;
+    })
+    .filter(Boolean);
+}
+function previewPaste(){
+  const el = document.getElementById("pPreview");
+  const parts = parseRequires(document.getElementById("pReq").value);
+  if (!parts.length){ el.innerHTML = ""; return; }
+  let cost = 0;
+  const rows = parts.map(p => {
+    if (p.matched){ const c = unitCost(p.matched) * p.qty; cost += c;
+      return `<span class="good">✓</span> ${p.qty}× ${esc(p.matched)} <span class="dim">${exact(c)}</span>`; }
+    return `<span class="ember">+</span> ${p.qty}× ${esc(p.raw)} <span class="ember">(new material)</span>`;
+  });
+  el.innerHTML = rows.join("<br>") + `<br><strong>Materials: <span class="gold">${exact(cost)}</span></strong>`;
+}
+function commitPaste(){
+  const name = document.getElementById("pName").value.trim();
+  const parts = parseRequires(document.getElementById("pReq").value);
+  if (!name)        return alert("Give the item a name first.");
+  if (!parts.length) return alert("Paste the Requires: line first.");
+  if (data.recipes.some(r => norm(r.name) === norm(name)))
+    if (!confirm(`"${name}" already exists. Add a second copy?`)) return;
+
+  const lines = parts.map(p => {
+    let ing = p.matched;
+    if (!ing){ ing = p.raw; data.materials.push({ id:uid(), name:ing, price:0, stock:0 }); }
+    return L(ing, p.qty);
+  });
+  const v = parseFloat(document.getElementById("pVal").value);
+  data.recipes.push({ id:uid(), name, value:isNaN(v)?null:v, labor:null, demand:1,
+                      slot:autoSlot(name), fam:autoFam(name), lines });
+  ["pName","pReq","pVal"].forEach(i => document.getElementById(i).value = "");
+  previewPaste(); render();
+}
+
+/* ── Categories ──
+   Auto-derived from the item name so ~200 items classify themselves, but stored on the
+   record so you can correct any of them by hand. Order matters: first match wins. */
+// Trailing s? on every noun — "Gauntlets" must match, and \bgauntlet\b does not.
+const SLOTS = [
+  ["Misc",    /\b(hinges?|nails?|locks?|fittings?|keys?)\b/i],
+  ["Tool",    /\b(pickaxes?|woodcutter'?s axes?)\b/i],
+  // \w* prefixes catch compounds: Broadaxe, Battleaxe, Greatsword, Warhammer.
+  ["Weapon",  /\b(\w*swords?|\w*axes?|\w*maces?|\w*hammers?|daggers?|bows?|arrows?)\b/i],
+  ["Jewelry", /\b(rings?|necklaces?|amulets?|circlets?)\b/i],
+  ["Shield",  /\bshields?\b/i],
+  ["Hands",   /\b(gauntlets?|bracers?|gloves?)\b/i],
+  ["Feet",    /\b(boots?|shoes?|shin)\b/i],
+  ["Head",    /\b(helmets?|helms?|hoods?|hats?|collars?)\b/i],
+  ["Body",    /\b(armor|armour|cuirass|tunics?|coats?|brigandines?|gambesons?|aketons?|hauberks?|mail|robes?|shawls?|skirts?|jackets?|surcoats?|braided|chain)\b/i]
+];
+const FAMS = [
+  ["Steel",     /\bsteel\b/i],      ["Iron",      /\biron\b/i],
+  ["Leather",   /\bleather\b/i],    ["Hide",      /\bhide\b/i],
+  ["Fur",       /\bfur\b/i],        ["Studded",   /\bstudded\b/i],
+  ["Lamellar",  /\blamellar\b/i],   ["Mail",      /\b(mail|chain)\b/i],
+  ["Stormcloak",/\bstormcloak\b/i], ["Gold",      /\bgold\b/i],
+  ["Silver",    /\bsilver\b/i],     ["Copper",    /\bcopper\b/i],
+  ["Jade",      /\bjade\b/i],       ["Common",    /\b(common|padded)\b/i]
+];
+const pick = (name, table, dflt) => (table.find(([,re]) => re.test(name)) || [dflt])[0];
+const autoSlot = n => pick(n, SLOTS, "Other");
+const autoFam  = n => pick(n, FAMS,  "Other");
+// Fill in anything missing without clobbering manual edits.
+function classifyAll(){
+  data.recipes.forEach(r => { r.slot ||= autoSlot(r.name); r.fam ||= autoFam(r.name); });
+}
+
+/* ── Bulk import ── */
+function parseBulkLine(line){
+  const parts = line.split("|").map(s => s.trim());
+  if (parts.length < 2 || !parts[0]) return null;
+  const v = parseFloat(parts[2]);
+  return { name:parts[0], parsed:parseRequires(parts[1]), value:isNaN(v)?null:v };
+}
+function previewBulk(){
+  const el = document.getElementById("bulkPreview");
+  const lines = document.getElementById("bulk").value.split("\n").map(s=>s.trim()).filter(Boolean);
+  if (!lines.length){ el.innerHTML = ""; return; }
+  let ok = 0, bad = 0, neu = new Set(), dup = 0;
+  const rows = lines.map(l => {
+    const p = parseBulkLine(l);
+    if (!p || !p.parsed.length){ bad++; return `<span class="bad">✗</span> <span class="dim">${esc(l.slice(0,60))}</span> — can't parse`; }
+    const isDup = data.recipes.some(r => norm(r.name) === norm(p.name));
+    if (isDup) dup++;
+    let cost = 0, allKnown = true;
+    p.parsed.forEach(x => { if (x.matched) cost += unitCost(x.matched)*x.qty; else { allKnown = false; neu.add(x.raw); } });
+    ok++;
+    return `<span class="${isDup?"ember":"good"}">${isDup?"⟳":"✓"}</span> ${esc(p.name)} `
+         + `<span class="dim">[${autoFam(p.name)}/${autoSlot(p.name)}]</span> — `
+         + `${p.parsed.map(x=>`${x.qty}× ${esc(x.matched||x.raw)}`).join(", ")} `
+         + `<span class="${allKnown?"gold":"ember"}">${exact(cost)}${allKnown?"":"+"}</span>`;
+  });
+  el.innerHTML = rows.join("<br>")
+    + `<br><strong>${ok} ready${dup?`, ${dup} already exist (will be skipped)`:""}${bad?`, <span class="bad">${bad} unparseable</span>`:""}`
+    + `${neu.size?`, <span class="ember">${neu.size} new material(s): ${[...neu].map(esc).join(", ")}</span>`:""}</strong>`;
+}
+function commitBulk(){
+  const lines = document.getElementById("bulk").value.split("\n").map(s=>s.trim()).filter(Boolean);
+  let added = 0, skipped = 0, failed = 0;
+  lines.forEach(l => {
+    const p = parseBulkLine(l);
+    if (!p || !p.parsed.length){ failed++; return; }
+    if (data.recipes.some(r => norm(r.name) === norm(p.name))){ skipped++; return; }
+    const ls = p.parsed.map(x => {
+      let ing = x.matched;
+      if (!ing){ ing = x.raw; data.materials.push({ id:uid(), name:ing, price:0, stock:0 }); }
+      return L(ing, x.qty);
+    });
+    data.recipes.push({ id:uid(), name:p.name, value:p.value, labor:null, demand:1,
+                        slot:autoSlot(p.name), fam:autoFam(p.name), lines:ls });
+    added++;
+  });
+  document.getElementById("bulk").value = "";
+  previewBulk(); render();
+  alert(`Imported ${added}.` + (skipped?` Skipped ${skipped} duplicate(s).`:"") + (failed?` ${failed} line(s) unparseable.`:""));
+}
+
+function fillVariantBase(){
+  const s = document.getElementById("vBase");
+  const keep = s.value;
+  s.innerHTML = data.recipes.map(r => `<option>${esc(r.name)}</option>`).join("");
+  if (keep) s.value = keep;
+}
+function genVariants(){
+  const base = data.recipes.find(r => r.name === document.getElementById("vBase").value);
+  if (!base) return alert("Pick a base item.");
+  const prefixes = document.getElementById("vPrefix").value.split(",").map(s => s.trim()).filter(Boolean);
+  if (!prefixes.length) return alert("Enter at least one prefix.");
+  let made = 0, skipped = [];
+  prefixes.forEach(p => {
+    const name = `${p} ${base.name}`;
+    if (data.recipes.some(r => norm(r.name) === norm(name))){ skipped.push(name); return; }
+    data.recipes.push({ id:uid(), name, value:base.value, labor:base.labor, demand:base.demand,
+                        slot: base.slot || autoSlot(name), fam: autoFam(name),
+                        lines: base.lines.map(l => L(l.ingredient, l.qty)) });
+    made++;
+  });
+  render();
+  document.getElementById("vNote").innerHTML =
+    `<span class="good">Created ${made}</span>${skipped.length?` · <span class="dim">skipped ${skipped.length} already present</span>`:""}`;
+}
+function cloneItem(i){
+  const r = data.recipes[i];
+  data.recipes.splice(i+1, 0, { id:uid(), name:r.name+" (copy)", value:r.value, labor:r.labor,
+                                demand:r.demand, lines:r.lines.map(l => L(l.ingredient, l.qty)) });
+  render();
+}
+
+/* ═════════ Recipes (editors) ═════════ */
+function opts(sel, exclude){
+  return [...data.materials.map(x=>x.name), ...data.intermediates.map(x=>x.name)]
+    .filter(n => n !== exclude)
+    .map(n => `<option ${n===sel?"selected":""}>${esc(n)}</option>`).join("");
+}
+function renameRef(o,n){
+  [...data.intermediates, ...data.recipes].forEach(x =>
+    (x.lines||[]).forEach(l => { if (l.ingredient === o) l.ingredient = n; }));
+  data.order.forEach(x => { if (x.item === o) x.item = n; });
+}
+function renderMatEditor(){
+  document.getElementById("matBody").innerHTML = data.materials.map((m,i) => `
+    <tr>
+      <td><input class="bare" value="${esc(m.name)}" onchange="renameMat(${i},this.value)"></td>
+      <td class="n"><input class="bare n w80" type="number" min="0" step="0.01" value="${m.price}"
+            onchange="data.materials[${i}].price=parseFloat(this.value)||0; render()"></td>
+      <td style="width:24px"><button class="x" onclick="delMat(${i})">✕</button></td>
+    </tr>`).join("");
+}
+const addMaterial = () => { data.materials.push({id:uid(),name:"New material",price:0,stock:0}); render(); };
+const delMat = i => { data.materials.splice(i,1); render(); };
+function renameMat(i,v){ const o = data.materials[i].name; data.materials[i].name = v; renameRef(o,v); render(); }
+
+// Re-rendering replaces the DOM, which would snap open <details> shut on every keystroke.
+// Snapshot which ones are open (by stable id) and restore after.
+function openIds(container){
+  return new Set([...document.querySelectorAll(`#${container} details[open]`)].map(d => d.dataset.k));
+}
+function restoreOpen(container, ids){
+  document.querySelectorAll(`#${container} details`).forEach(d => { if (ids.has(d.dataset.k)) d.open = true; });
+}
+
+function renderInterEditor(){
+  const wasOpen = openIds("interList");
+  document.getElementById("interList").innerHTML = data.intermediates.map((it,ii) => {
+    const ings = (it.lines||[]).map((l,li) => `
+      <div class="ing">
+        <select onchange="data.intermediates[${ii}].lines[${li}].ingredient=this.value; render()">${opts(l.ingredient, it.name)}</select>
+        <input class="n" type="number" min="0" step="1" value="${l.qty}"
+          onchange="data.intermediates[${ii}].lines[${li}].qty=parseFloat(this.value)||0; render()">
+        <span class="c">${exact(unitCost(l.ingredient)*(+l.qty||0))}</span>
+        <button class="x" onclick="delInterLine(${ii},${li})">✕</button>
+      </div>`).join("");
+    return `<details data-k="${it.id}">
+      <summary><span class="nm steel">${esc(it.name)}</span>
+        <span class="sp"><span class="dim">${exact(unitCost(it.name))} / unit</span></span></summary>
+      <div class="body">
+        <div class="ing-h"><span>Ingredient</span><span>Qty</span><span>Cost</span><span></span></div>
+        ${ings}
+        <div class="row" style="margin-top:6px">
+          <button class="b" onclick="addInterLine(${ii})">+ ingredient</button>
+          <input class="bare" style="max-width:150px" value="${esc(it.name)}" onchange="renameInter(${ii},this.value)">
+          <button class="x" onclick="delInter(${ii})" style="margin-left:auto">✕ delete</button>
+        </div>
+        <div class="knobs">
+          <div class="k"><label>Yield</label><input class="n w60" type="number" min="1" step="1" value="${it.yield}"
+              onchange="data.intermediates[${ii}].yield=parseFloat(this.value)||1; render()"></div>
+          <div class="k"><label>Labor</label><input class="n w60" type="number" min="0" step="1" value="${it.labor}"
+              onchange="data.intermediates[${ii}].labor=parseFloat(this.value)||0; render()"></div>
+        </div>
+      </div></details>`;
+  }).join("");
+  restoreOpen("interList", wasOpen);
+}
+const addIntermediate = () => { data.intermediates.push({id:uid(),name:"New component",yield:1,labor:0,stock:0,lines:[]}); render(); };
+const delInter = i => { data.intermediates.splice(i,1); render(); };
+function renameInter(i,v){ const o = data.intermediates[i].name; data.intermediates[i].name = v; renameRef(o,v); render(); }
+const addInterLine = i => { data.intermediates[i].lines.push(L(data.materials[0]?.name||"",1)); render(); };
+const delInterLine = (a,b) => { data.intermediates[a].lines.splice(b,1); render(); };
+
+function renderItemEditor(){
+  const wasOpen = openIds("itemList");
+  document.getElementById("itemList").innerHTML = data.recipes.map((r,ri) => {
+    const c = calc(r);
+    const ings = (r.lines||[]).map((l,li) => `
+      <div class="ing">
+        <select onchange="data.recipes[${ri}].lines[${li}].ingredient=this.value; render()">${opts(l.ingredient,null)}</select>
+        <input class="n" type="number" min="0" step="1" value="${l.qty}"
+          onchange="data.recipes[${ri}].lines[${li}].qty=parseFloat(this.value)||0; render()">
+        <span class="c">${exact(unitCost(l.ingredient)*(+l.qty||0))}</span>
+        <button class="x" onclick="delItemLine(${ri},${li})">✕</button>
+      </div>`).join("");
+    return `<details data-k="${r.id}">
+      <summary><span class="nm">${esc(r.name)}</span>
+        <span class="pill">${esc(r.fam||"Other")}</span><span class="pill">${esc(r.slot||"Other")}</span>
+        <span class="sp"><span class="dim">${exact(c.mat)} mat</span><span class="gold">${money(c.price)}</span></span></summary>
+      <div class="body">
+        <div class="ing-h"><span>Ingredient</span><span>Qty</span><span>Cost</span><span></span></div>
+        ${ings}
+        <div class="row" style="margin-top:6px">
+          <button class="b" onclick="addItemLine(${ri})">+ ingredient</button>
+          <button class="b" onclick="cloneItem(${ri})" title="Duplicate as a variant">⧉ clone</button>
+          <input class="bare" style="max-width:170px" value="${esc(r.name)}"
+            onchange="renameItem(${ri},this.value)">
+          <button class="x" onclick="delRecipe(${ri})" style="margin-left:auto">✕ delete</button>
+        </div>
+        <div class="knobs">
+          <div class="k"><label>Labor</label><input class="n w60" type="number" min="0" step="1"
+              placeholder="${data.settings.defaultLabor}" value="${r.labor===null?"":r.labor}"
+              onchange="data.recipes[${ri}].labor=(this.value===''?null:(parseFloat(this.value)||0)); render()"></div>
+          <div class="k"><label>Demand ×</label><input class="n w60" type="number" min="0" step="0.05" value="${r.demand}"
+              onchange="data.recipes[${ri}].demand=parseFloat(this.value)||0; render()"></div>
+          <div class="k"><label>Market</label><input class="n w70" type="number" min="0" step="1" placeholder="—"
+              value="${r.value==null?"":r.value}"
+              onchange="data.recipes[${ri}].value=(this.value===''?null:(parseFloat(this.value)||0)); render()"></div>
+        </div>
+        <div class="note">(${exact(c.mat)} + ${exact(c.labor)} labor) × ${c.markup} × ${c.demand} = <span class="gold">${money(c.price)}</span></div>
+      </div></details>`;
+  }).join("");
+  restoreOpen("itemList", wasOpen);
+}
+const addRecipe = () => { data.recipes.push({id:uid(),name:"New Item",value:null,labor:null,demand:1,lines:[]}); render(); };
+const delRecipe = i => { const n = data.recipes[i].name; data.recipes.splice(i,1);
+                         data.order = data.order.filter(o => o.item !== n); render(); };
+function renameItem(i,v){ const o = data.recipes[i].name; data.recipes[i].name = v;
+                          data.order.forEach(x => { if (x.item === o) x.item = v; }); render(); }
+const addItemLine = i => { data.recipes[i].lines.push(L(data.intermediates[0]?.name || data.materials[0]?.name || "",1)); render(); };
+const delItemLine = (a,b) => { data.recipes[a].lines.splice(b,1); render(); };
+
+/* ═════════ Settings ═════════ */
+function renderTiers(){
+  document.getElementById("tierBody").innerHTML = (data.settings.tiers||[])
+    .slice().sort((a,b)=>(+a.qty||0)-(+b.qty||0))
+    .map((t) => {
+      const i = data.settings.tiers.indexOf(t);
+      return `<tr>
+        <td class="n"><input class="bare n w60" type="number" min="1" step="1" value="${t.qty}"
+              onchange="data.settings.tiers[${i}].qty=parseFloat(this.value)||0; render()"></td>
+        <td class="n"><input class="bare n w60" type="number" min="0" max="100" step="1" value="${t.pct}"
+              onchange="data.settings.tiers[${i}].pct=parseFloat(this.value)||0; render()"></td>
+        <td style="width:24px"><button class="x" onclick="delTier(${i})">✕</button></td>
+      </tr>`;
+    }).join("") || `<tr><td colspan="3" class="empty">No tiers — no bulk discount applied.</td></tr>`;
+}
+const addTier = () => { data.settings.tiers.push({qty:5,pct:5}); render(); };
+const delTier = i => { data.settings.tiers.splice(i,1); render(); };
+
+function renderCustomers(){
+  const b=document.getElementById("custBody"); if(!b) return;
+  b.innerHTML=(data.customers||[]).map((c,i)=>`
+    <tr>
+      <td><input class="bare" value="${esc(c.name)}" onchange="data.customers[${i}].name=this.value.trim()||'Customer'; render()"></td>
+      <td class="n"><input class="bare n w60" type="number" min="0" step="0.1" value="${c.markup}" onchange="data.customers[${i}].markup=parseFloat(this.value)||0; render()"></td>
+      <td><input class="bare" style="width:100%;min-width:180px" placeholder="what they like, haggling, debts…" value="${esc(c.note||'')}" onchange="data.customers[${i}].note=this.value; render()"></td>
+      <td style="width:24px">${i===0?'<span class="pill" title="Sets the Database price">base</span>':`<button class="x" onclick="delCustomer(${i})">✕</button>`}</td>
+    </tr>`).join("");
+}
+function addCustomer(){ data.customers.push({id:uid(),name:"New customer",markup:2,note:""}); render(); }
+function syncStackBox(){ const sb=document.getElementById("stackBulk"); if(sb) sb.checked = data.settings.stackBulk !== false; }
+function delCustomer(i){
+  if(i===0) return;
+  const removed=data.customers[i]; data.customers.splice(i,1);
+  if(data.settings.customer===removed.id) data.settings.customer=data.customers[0].id;
+  render();
+}
+
+function bindSettings(){
+  ["currency","defaultLabor","roundTo"].forEach(id => {
+    const el = document.getElementById(id);
+    el.value = data.settings[id];
+    el.addEventListener("input", () => {
+      data.settings[id] = id === "currency" ? el.value : (parseFloat(el.value)||0);
+      render();
+    });
+  });
+}
+
+/* ═════════ Backup ═════════ */
+function exportData(){
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:"application/json"}));
+  a.download = "keisaal-prices.json"; a.click();
+}
+function importData(inp){
+  const f = inp.files[0]; if (!f) return;
+  const rd = new FileReader();
+  rd.onload = e => { try { data = fix(JSON.parse(e.target.result)); bindSettings(); render(); }
+                     catch(err){ alert("Could not read that file."); } };
+  rd.readAsText(f); inp.value = "";
+}
+function resetAll(){
+  if (!confirm("Reset everything to defaults? Export first if you want to keep your setup.")) return;
+  data = fix(structuredClone(DEFAULT)); bindSettings(); render();
+}
+
+/* ═════════ Render ═════════ */
+function render(){
+  classifyAll();
+  fillAddItem();
+  fillPresetSel();
+  fillVariantBase();
+  renderCraft();
+  renderQuote();
+  renderTill();
+  renderDatabase();
+  renderInventory();
+  renderPack();
+  renderMatEditor();
+  renderInterEditor();
+  renderItemEditor();
+  renderTiers();
+  renderCustomers();
+  syncStackBox();
+  save();
+}
+bindSettings();
+
+/* ═════════════════════════════════════════════════════════════
+   Access gate + admin panel
+   ───────────────────────────────────────────────────────────
+   • status.json (public, hosted next to this page) holds:
+        { "week": <int>, "codes": { "<sha256(code)>": <validThroughWeek> } }
+   • Users type a code → we hash it and check membership + expiry.
+   • Fail-closed: no reachable status.json ⇒ no access.
+   • Admin writes status.json straight to GitHub with a fine-grained
+     token that lives ONLY in this browser (never in the source).
+   ═════════════════════════════════════════════════════════════ */
+// SHA-256 of the admin passphrase, baked in. A stranger who doesn't know the passphrase
+// cannot open the panel; and even if they did, it is powerless without your GitHub token
+// (which only ever lives in your own browser). Change the passphrase by replacing this hash.
+const ADMIN_PASS_HASH = "a09708942b0318a21356b6a4c78bc81038352e482db89bcfe7f360ecac9c3c27";
+const LK = {
+  cfg:   "keisaal_gh_cfg",     // {owner,repo,branch,path}
+  token: "keisaal_gh_token",
+  notes: "keisaal_code_notes", // { hash: note } — local only, never published
+  code:  "keisaal_access_code" // remembered user code
+};
+const IS_FILE = location.protocol === "file:";
+let appStarted = false;
+let ghState = { week: 1, codes: {} };   // admin working copy
+let ghSha   = null;                       // sha of status.json for updates
+let codeNotes = jparse(localStorage.getItem(LK.notes)) || {};
+
+function jparse(s){ try { return JSON.parse(s); } catch(e){ return null; } }
+async function sha256hex(str){
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2,"0")).join("");
+}
+const normCode = s => (s||"").trim().toUpperCase().replace(/\s+/g,"");
+function ghCfg(){
+  return Object.assign({ owner:"", repo:"", branch:"main", path:"status.json" },
+                       jparse(localStorage.getItem(LK.cfg)) || {});
+}
+function statusPath(){ return ghCfg().path || "status.json"; }
+function b64enc(str){ return btoa(unescape(encodeURIComponent(str))); }
+function b64dec(str){ return decodeURIComponent(escape(atob(str.replace(/\s/g,"")))); }
+
+/* ── User gate ── */
+async function fetchStatus(){
+  // Same-origin relative fetch works on GitHub Pages; ?cb defeats CDN caching.
+  const r = await fetch(statusPath() + "?cb=" + Date.now(), { cache:"no-store" });
+  if (!r.ok) throw new Error("status " + r.status);
+  return r.json();
+}
+async function isValid(code, status){
+  if (!code || !status || !status.codes) return false;
+  const h = await sha256hex(normCode(code));
+  const until = status.codes[h];
+  return until != null && until >= (status.week || 0);
+}
+function gmsg(t, cls){ const e = document.getElementById("gateMsg"); e.textContent = t; e.className = "gate-msg " + (cls||"dim"); }
+
+async function bootGate(){
+  document.body.classList.add("locked");
+  let status;
+  try { status = await fetchStatus(); }
+  catch(e){
+    gmsg("Can't reach the access list — check your connection and reload.", "err");
+    if (IS_FILE){
+      const f = document.querySelector("#gate .gate-foot");
+      f.innerHTML = '<a onclick="openAdmin()">admin</a> &nbsp;·&nbsp; ' +
+                    '<a onclick="startApp()">open locally (dev)</a>';
+    }
+    return;
+  }
+  const saved = localStorage.getItem(LK.code);
+  if (saved && await isValid(saved, status)){ startApp(); return; }
+  gmsg(saved ? "Your code has expired — enter a current one." : "", saved ? "err" : "dim");
+  const i = document.getElementById("gateCode"); if (i) i.focus();
+}
+async function gateUnlock(){
+  const code = document.getElementById("gateCode").value;
+  if (!normCode(code)){ gmsg("Enter your code.", "err"); return; }
+  gmsg("Checking…", "dim");
+  let status;
+  try { status = await fetchStatus(); }
+  catch(e){ gmsg("Can't reach the access list — try again shortly.", "err"); return; }
+  if (await isValid(code, status)){
+    localStorage.setItem(LK.code, code);
+    gmsg("Welcome.", "ok");
+    startApp();
+  } else {
+    gmsg("That code isn't valid this week.", "err");
+  }
+}
+function startApp(){
+  document.body.classList.remove("locked");
+  document.getElementById("gate").classList.add("hidden");
+  if (!appStarted){ appStarted = true; render(); }
+}
+
+/* ── Admin: entry ── */
+function openAdmin(){
+  document.getElementById("adminPassLbl").textContent = "Admin passphrase";
+  document.getElementById("adminLock").style.display = "block";
+  document.getElementById("adminBody").style.display = "none";
+  document.getElementById("adminLockMsg").textContent = "";
+  document.getElementById("adminPass").value = "";
+  document.getElementById("admin").classList.remove("hidden");
+  document.getElementById("adminPass").focus();
+}
+function closeAdmin(){ document.getElementById("admin").classList.add("hidden"); }
+async function adminEnter(){
+  const entered = document.getElementById("adminPass").value;
+  const msg = document.getElementById("adminLockMsg");
+  if (!entered){ msg.textContent = "Enter the passphrase."; msg.className = "gate-msg err"; return; }
+  const h = await sha256hex(entered);
+  if (h !== ADMIN_PASS_HASH){ msg.textContent = "Wrong passphrase."; msg.className = "gate-msg err"; return; }
+  // unlock panel
+  const c = ghCfg();
+  document.getElementById("ghOwner").value  = c.owner;
+  document.getElementById("ghRepo").value   = c.repo;
+  document.getElementById("ghBranch").value = c.branch;
+  document.getElementById("ghPath").value   = c.path;
+  document.getElementById("ghToken").value  = localStorage.getItem(LK.token) || "";
+  document.getElementById("adminLock").style.display = "none";
+  document.getElementById("adminBody").style.display = "block";
+  renderCodes();
+}
+function adminSaveCfg(){
+  const cfg = {
+    owner:  document.getElementById("ghOwner").value.trim(),
+    repo:   document.getElementById("ghRepo").value.trim(),
+    branch: document.getElementById("ghBranch").value.trim() || "main",
+    path:   document.getElementById("ghPath").value.trim() || "status.json"
+  };
+  localStorage.setItem(LK.cfg, JSON.stringify(cfg));
+  const tok = document.getElementById("ghToken").value.trim();
+  if (tok) localStorage.setItem(LK.token, tok); else localStorage.removeItem(LK.token);
+  ghmsg("Settings saved in this browser.", "ok");
+}
+function ghmsg(t, cls){ const e = document.getElementById("ghMsg"); e.textContent = t; e.className = "gate-msg " + (cls||"dim"); }
+
+/* ── Admin: GitHub read/write ── */
+function ghHeaders(){
+  return { "Accept":"application/vnd.github+json",
+           "Authorization":"Bearer " + (localStorage.getItem(LK.token)||""),
+           "X-GitHub-Api-Version":"2022-11-28" };
+}
+function ghApiUrl(){
+  const c = ghCfg();
+  return `https://api.github.com/repos/${c.owner}/${c.repo}/contents/${c.path}`;
+}
+function ghReady(){
+  const c = ghCfg();
+  if (!c.owner || !c.repo){ ghmsg("Set owner and repository first.", "err"); return false; }
+  if (!localStorage.getItem(LK.token)){ ghmsg("Add and save your GitHub token first.", "err"); return false; }
+  return true;
+}
+async function adminLoad(){
+  adminSaveCfg();
+  if (!ghReady()) return;
+  ghmsg("Loading…", "dim");
+  try {
+    const c = ghCfg();
+    const r = await fetch(ghApiUrl() + "?ref=" + encodeURIComponent(c.branch), { headers: ghHeaders(), cache:"no-store" });
+    if (r.status === 404){ ghState = { week:1, codes:{} }; ghSha = null; renderCodes();
+      ghmsg("No status file yet — Publish will create it.", "dim"); return; }
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const j = await r.json();
+    ghSha = j.sha;
+    const parsed = jparse(b64dec(j.content)) || {};
+    ghState = { week: +parsed.week || 1, codes: parsed.codes || {} };
+    renderCodes();
+    ghmsg("Loaded. Week " + ghState.week + ", " + Object.keys(ghState.codes).length + " codes.", "ok");
+  } catch(e){ ghmsg("Load failed: " + e.message, "err"); }
+}
+async function adminPublish(){
+  adminSaveCfg();
+  if (!ghReady()) return;
+  ghmsg("Publishing…", "dim");
+  try {
+    const c = ghCfg();
+    const body = { message: "Update status.json (week " + ghState.week + ")",
+                   content: b64enc(JSON.stringify(ghState, null, 2)),
+                   branch: c.branch };
+    if (ghSha) body.sha = ghSha;
+    const r = await fetch(ghApiUrl(), { method:"PUT", headers: ghHeaders(), body: JSON.stringify(body) });
+    if (!r.ok){ const t = await r.text(); throw new Error("HTTP " + r.status + " " + t.slice(0,120)); }
+    const j = await r.json();
+    ghSha = j.content && j.content.sha;
+    ghmsg("Published ✓  Live within a minute.", "ok");
+  } catch(e){ ghmsg("Publish failed: " + e.message, "err"); }
+}
+
+/* ── Admin: weeks, codes ── */
+function adminAdvanceWeek(){ ghState.week = (+ghState.week||1) + 1; renderCodes(); ghmsg("Week is now " + ghState.week + " — Publish to apply.", "dim"); }
+function adminSetWeek(){ const v = parseInt(document.getElementById("wkSet").value,10); if (v>0){ ghState.week = v; renderCodes(); ghmsg("Week set to " + v + " — Publish to apply.", "dim"); } }
+function randomCode(){
+  const A = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no confusing chars
+  const r = crypto.getRandomValues(new Uint8Array(12));
+  let s = ""; for (let i=0;i<12;i++){ s += A[r[i] % A.length]; if (i%4===3 && i<11) s += "-"; }
+  return "KSL-" + s;
+}
+async function genCode(){
+  const note = document.getElementById("genNote").value.trim();
+  const weeks = Math.max(1, parseInt(document.getElementById("genWeeks").value,10) || 1);
+  const code = randomCode();
+  const h = await sha256hex(normCode(code));
+  ghState.codes[h] = (+ghState.week||1) + weeks - 1;   // valid through this many weeks inclusive
+  if (note){ codeNotes[h] = note; localStorage.setItem(LK.notes, JSON.stringify(codeNotes)); }
+  const out = document.getElementById("genOut");
+  out.style.display = "flex";
+  out.innerHTML = `<span>${code}</span><button class="b" onclick="navigator.clipboard.writeText('${code}')">Copy</button>`;
+  document.getElementById("genNote").value = "";
+  renderCodes();
+  ghmsg("Code added (valid thru week " + ghState.codes[h] + ") — Publish to activate.", "dim");
+}
+function removeCode(h){ delete ghState.codes[h]; delete codeNotes[h]; localStorage.setItem(LK.notes, JSON.stringify(codeNotes)); renderCodes(); ghmsg("Removed — Publish to apply.", "dim"); }
+function killAll(){ if (!confirm("Remove ALL access codes? Everyone is locked out after you Publish.")) return; ghState.codes = {}; renderCodes(); ghmsg("All codes cleared — Publish to apply.", "dim"); }
+function renderCodes(){
+  document.getElementById("wkNow").textContent = ghState.week;
+  document.getElementById("wkSet").value = ghState.week;
+  const rows = Object.keys(ghState.codes).sort((a,b)=>ghState.codes[b]-ghState.codes[a]);
+  document.getElementById("codeCount").textContent = "· " + rows.length + " total";
+  document.getElementById("codeRows").innerHTML = rows.map(h => {
+    const until = ghState.codes[h];
+    const active = until >= ghState.week;
+    return `<tr><td>${esc(codeNotes[h]||"—")}</td><td class="mono">${h.slice(0,10)}…</td>`+
+           `<td class="n">${until}</td>`+
+           `<td><span class="badge ${active?"ok":"exp"}">${active?"active":"expired"}</span></td>`+
+           `<td><button class="b" onclick="removeCode('${h}')">✕</button></td></tr>`;
+  }).join("") || `<tr><td colspan="5" class="dim">No codes yet.</td></tr>`;
+}
+function downloadBackup(){
+  const blob = new Blob([JSON.stringify({ status: ghState, notes: codeNotes }, null, 2)], { type:"application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "keisaal-status-backup.json";
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+bootGate();
+</script>
+</body>
+</html>
