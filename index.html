@@ -94,6 +94,22 @@
   .bar i { display:block; height:100%; background:var(--good); }
   .bar i.low { background:var(--ember); } .bar i.out { background:var(--bad); }
 
+  /* ── Preview / demo mode ── */
+  #demoBar { display:none; }
+  body.demo #demoBar { display:flex; align-items:center; justify-content:center; gap:14px;
+    flex-wrap:wrap; padding:7px 16px; background:linear-gradient(90deg,var(--gold-2),var(--gold));
+    color:#1a1206; font-size:12.5px; font-weight:600; letter-spacing:.3px; text-align:center; }
+  #demoBar .tag { background:rgba(26,18,6,.22); border-radius:20px; padding:2px 10px; font-variant:small-caps; letter-spacing:.5px; }
+  #demoBar a { color:#1a1206; text-decoration:underline; font-weight:700; }
+  body.demo #lockBtn { display:none; }
+  /* Sample sheet is fixed in preview — data-entry surfaces are look-only, Craft stays interactive. */
+  body.demo #tab-database input, body.demo #tab-database select,
+  body.demo #tab-inventory input, body.demo #tab-inventory select,
+  body.demo #tab-recipes input, body.demo #tab-recipes select, body.demo #tab-recipes textarea,
+  body.demo #tab-add input, body.demo #tab-add select, body.demo #tab-add textarea, body.demo #tab-add button,
+  body.demo #tab-settings input, body.demo #tab-settings select, body.demo #tab-settings button {
+    pointer-events:none; opacity:.6; cursor:not-allowed; }
+
   /* ── Access gate & admin panel ── */
   body.locked .top, body.locked main { display:none; }
   .overlay { position:fixed; inset:0; z-index:100; background:rgba(10,8,6,.93);
@@ -136,6 +152,12 @@
 </head>
 <body class="locked">
 
+<!-- ══ PREVIEW BANNER (shown only in ?demo mode) ══ -->
+<div id="demoBar">
+  <span><span class="tag">Preview</span> &nbsp;Sample numbers — this is a live demo, nothing you change is saved.</span>
+  <a href="https://discord.gg/cg4GT8Pd7" target="_blank" rel="noopener">Get access →</a>
+</div>
+
 <!-- ══ ACCESS GATE ══ -->
 <div id="gate" class="overlay">
   <div class="gate-card">
@@ -148,7 +170,7 @@
       <button class="b pri" style="flex:1" onclick="gateUnlock()">Unlock</button>
     </div>
     <div id="gateMsg" class="gate-msg dim"></div>
-    <div class="gate-foot"><a onclick="openAdmin()">admin</a></div>
+    <div class="gate-foot"><a onclick="startDemo()">see a live demo →</a> &nbsp;·&nbsp; <a onclick="openAdmin()">admin</a></div>
   </div>
 </div>
 
@@ -242,7 +264,7 @@
     <button id="t-recipes"   onclick="tab('recipes')">Recipes</button>
     <button id="t-settings"  onclick="tab('settings')">Settings</button>
   </nav>
-  <button class="b" onclick="lockApp()" title="Lock — return to the code screen" style="margin-left:10px">🔒 Lock</button>
+  <button id="lockBtn" class="b" onclick="lockApp()" title="Lock — return to the code screen" style="margin-left:10px">🔒 Lock</button>
 </div></div>
 
 <main>
@@ -570,6 +592,11 @@
 const uid = () => Math.random().toString(36).slice(2,9);
 const L = (ingredient, qty) => ({ ingredient, qty });
 
+// Preview mode: yoursite/?demo (or the gate's "see a live demo" link) opens a sandboxed
+// tour on fixed sample numbers. It never reads or writes the real book (localStorage) and
+// never persists. Runtime-mutable so the gate link can switch it on after load() has run.
+let IS_DEMO = new URLSearchParams(location.search).has("demo");
+
 const DEFAULT = {
   settings: { currency:"g", defaultLabor:0, markup:2, markupFriend:1.5, roundTo:1, friend:false, customer:null, stackBulk:true,
               tiers:[{qty:5,pct:5},{qty:10,pct:10},{qty:25,pct:15}] },
@@ -685,7 +712,24 @@ const KEY = "keisaal_calc_v7";
 let data = load();
 let dbSortKey = "name", dbSortDir = 1;
 
+// Fixed sample sheet for preview mode — invented, showcase-safe numbers laid over the
+// real recipe/intermediate database so every prospect sees the same populated calculator.
+function buildDemo(){
+  const d = structuredClone(DEFAULT);
+  const price = { "Iron ore":1, "Corundum ore":2, "Silver ore":5, "Gold ore":5,
+    "Leather":3, "Poor charcoal":1.5, "Charcoal":3, "Charcoal brick":6, "Coke":9 };
+  const stock = { "Iron ore":120, "Corundum ore":60, "Silver ore":30, "Gold ore":20,
+    "Leather":40, "Poor charcoal":200, "Charcoal":150, "Charcoal brick":50, "Coke":40 };
+  d.materials.forEach(m => { m.price = price[m.name] ?? 0; m.stock = stock[m.name] ?? 0; });
+  const ingotStock = { "Iron ingot":24, "Corundum ingot":12, "Steel ingot":16,
+    "Silver ingot":8, "Gold ingot":6, "Leather strip":40 };
+  d.intermediates.forEach(x => { x.stock = ingotStock[x.name] ?? 0; });
+  d.settings.defaultLabor = 0;   // no labor markup in the sample sheet
+  return d;
+}
+
 function load(){
+  if (IS_DEMO) return fix(buildDemo());   // ignore stored data entirely in preview
   try { const r = localStorage.getItem(KEY); if (r) return fix(JSON.parse(r)); } catch(e){}
   return fix(structuredClone(DEFAULT));
 }
@@ -713,6 +757,7 @@ function fix(d){
 // throw mid-render — the app stays usable, the user just gets told it isn't persisting.
 function save(){
   const s = document.getElementById("saveState");
+  if (IS_DEMO){ if (s){ s.textContent = "preview — not saved"; s.style.color = "var(--dim)"; } return; }
   try {
     localStorage.setItem(KEY, JSON.stringify(data));
     if (s){ s.textContent = "saved ✓"; s.style.color = "var(--good)"; }
@@ -1838,7 +1883,18 @@ async function isValid(code, status){
 }
 function gmsg(t, cls){ const e = document.getElementById("gateMsg"); e.textContent = t; e.className = "gate-msg " + (cls||"dim"); }
 
+function startDemo(){
+  IS_DEMO = true;                 // switch on no-save + fixed sample sheet (covers the gate link)
+  data = fix(buildDemo());        // load() may have already run with real data — replace it
+  document.body.classList.remove("locked");
+  document.body.classList.add("demo");
+  const a = document.getElementById("admin"); if (a) a.classList.add("hidden");
+  document.getElementById("gate").classList.add("hidden");
+  if (!appStarted){ appStarted = true; render(); }
+}
+
 async function bootGate(){
+  if (IS_DEMO){ startDemo(); return; }   // preview link/URL bypasses the access list
   document.body.classList.add("locked");
   let status;
   try { status = await fetchStatus(); }
