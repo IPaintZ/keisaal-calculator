@@ -75,6 +75,18 @@
   /* Bare table inputs look cohesive once flanked by stepper buttons. */
   .step > input.bare { border-color:var(--line); background:var(--panel-2); }
 
+  /* On/off switch — themed sliding toggle. */
+  .switch { display:inline-flex; align-items:center; gap:8px; cursor:pointer; user-select:none; }
+  .switch > input { position:absolute; opacity:0; width:0; height:0; }
+  .switch .track { flex:none; position:relative; width:34px; height:18px; border-radius:10px;
+    background:var(--panel-3); border:1px solid var(--line); transition:background .15s,border-color .15s; }
+  .switch .track::after { content:""; position:absolute; top:1px; left:1px; width:14px; height:14px;
+    border-radius:50%; background:var(--dim); transition:transform .15s,background .15s; }
+  .switch > input:checked + .track { background:var(--gold-2); border-color:var(--gold); }
+  .switch > input:checked + .track::after { transform:translateX(16px); background:#1c1710; }
+  .switch > input:focus-visible + .track { outline:2px solid var(--gold-2); outline-offset:2px; }
+  .switch .swlbl { font-size:12.5px; }
+
   button.b {
     background:var(--panel-2); color:var(--ink); border:1px solid var(--line);
     border-radius:5px; padding:4px 9px; cursor:pointer; font-size:12px; font-family:inherit; white-space:nowrap;
@@ -316,7 +328,7 @@
     <h3>New Order</h3>
     <div class="row">
       <span class="dd-wrap" style="position:relative;display:inline-block;min-width:240px">
-        <input id="addItem" autocomplete="off" placeholder="Type to search…" style="width:100%"
+        <input id="addItem" autocomplete="off" placeholder="Type an item or raw material…" style="width:100%"
           oninput="openOrderDD()" onkeydown="ddKey('add',event)" onblur="setTimeout(ddClose,150)">
         <div id="addDD" class="dd" style="display:none"></div>
       </span>
@@ -586,9 +598,9 @@
         <div class="k"><label>Currency</label><input id="currency" class="w60"></div>
         <div class="k"><label>Default labor</label><span class="step"><button type="button" onclick="stepField(this,-1)" aria-label="Decrease default labor">−</button><input id="defaultLabor" class="n w70" type="number" min="0" step="1"><button type="button" onclick="stepField(this,1)" aria-label="Increase default labor">+</button></span></div>
         <div class="k" style="align-self:end"><span class="dim" style="font-size:11px">Markups are per-customer →</span></div>
-        <div class="k"><label>Round to</label><span class="step"><button type="button" onclick="stepField(this,-1)" aria-label="Decrease round to">−</button><input id="roundTo" class="n w70" type="number" min="0" step="1"><button type="button" onclick="stepField(this,1)" aria-label="Increase round to">+</button></span></div>
+        <div class="k"><label>Rounding</label><label class="switch"><input type="checkbox" id="roundOn" onchange="data.settings.roundOn=this.checked; render()"><span class="track"></span><span class="swlbl">Whole numbers</span></label></div>
       </div>
-      <div class="note">Round to 0 disables rounding. Costs always show exact values.</div>
+      <div class="note">When on, sale prices round to whole numbers; off shows the exact price. Costs always show exact values.</div>
     </div>
 
     <div class="box">
@@ -601,7 +613,10 @@
     <div class="box">
       <h3>Bulk Discount <span class="sp"><button class="b" onclick="addTier()">+ Tier</button></span></h3>
       <p class="hint">Applied to the whole order, based on the total number of items in it. Highest matching tier wins.</p>
-      <label class="row" style="gap:6px;margin:-2px 0 8px;cursor:pointer"><input type="checkbox" id="stackBulk" style="width:auto" onchange="data.settings.stackBulk=this.checked; render()"> Also give bulk discount to non-standard customers</label>
+      <div style="display:flex;flex-direction:column;gap:9px;margin:-2px 0 10px">
+        <label class="switch"><input type="checkbox" id="stackBulk" onchange="data.settings.stackBulk=this.checked; render()"><span class="track"></span><span class="swlbl">Also give bulk discount to non-standard customers</span></label>
+        <label class="switch"><input type="checkbox" id="bulkMats" onchange="data.settings.bulkCountsMaterials=this.checked; render()"><span class="track"></span><span class="swlbl">Count raw materials toward the bulk discount</span></label>
+      </div>
       <table><thead><tr><th class="n">Qty ≥</th><th class="n">Discount %</th><th></th></tr></thead>
         <tbody id="tierBody"></tbody></table>
     </div>
@@ -633,7 +648,8 @@ const L = (ingredient, qty) => ({ ingredient, qty });
 let IS_DEMO = new URLSearchParams(location.search).has("demo");
 
 const DEFAULT = {
-  settings: { currency:"g", defaultLabor:0, markup:2, markupFriend:1.5, roundTo:1, friend:false, customer:null, stackBulk:true,
+  settings: { currency:"g", defaultLabor:0, markup:2, markupFriend:1.5, roundOn:true, friend:false, customer:null,
+              stackBulk:true, bulkCountsMaterials:false,
               tiers:[{qty:5,pct:5},{qty:10,pct:10},{qty:25,pct:15}] },
   till: { revenue:0, cost:0, sales:0, items:0, purchases:0 },
   customers: [ {id:uid(),name:"Standard",markup:2,discount:0}, {id:uid(),name:"Friend",markup:1.5,discount:0} ],
@@ -781,6 +797,9 @@ function fix(d){
   }
   d.settings.customer ??= d.customers[0].id;
   d.settings.stackBulk ??= true;
+  d.settings.bulkCountsMaterials ??= false;
+  // Rounding is now an on/off switch; migrate old roundTo (0 meant "off").
+  if (d.settings.roundOn === undefined) d.settings.roundOn = (+d.settings.roundTo||0) > 0;
   d.customers.forEach(c => { c.note ??= ""; c.qq ??= true; });
   d.buyers.forEach(b => { b.note ??= ""; b.profileId ??= null; b.prices ??= {}; });
   d.settings.buyer ??= null;
@@ -844,8 +863,8 @@ function tierFor(qty){
 /* ═════════ Format ═════════ */
 const cur = () => data.settings.currency || "";
 function money(n){                                   // rounded — sale prices
-  const r = +data.settings.roundTo || 0;
-  let v = r > 0 ? Math.round(n/r)*r : n;
+  const on = data.settings.roundOn !== false;        // on = whole numbers, off = exact
+  let v = on ? Math.round(n) : n;
   return cur() + (Math.round(v*100)/100).toLocaleString();
 }
 function exact(n){                                   // unrounded — costs
@@ -874,10 +893,27 @@ function resolveItem(typed){
           if(hits.length === 1) r = hits[0]; }                       // unique substring
   return r;
 }
+function resolveMaterial(typed){                                     // same matching as resolveItem, over raw materials
+  if(!typed) return null;
+  let m = data.materials.find(x => x.name === typed);
+  if(!m) m = data.materials.find(x => norm(x.name) === norm(typed));
+  if(!m){ const hits = data.materials.filter(x => x.name.toLowerCase().includes(typed.toLowerCase()));
+          if(hits.length === 1) m = hits[0]; }
+  return m;
+}
 function addToOrder(name, qty){
-  const ex = data.order.find(o => o.item === name);
+  const ex = data.order.find(o => o.item === name && o.kind !== 'material');
   if (ex) { ex.qty += qty; return; }
   const line = { id:uid(), item:name, qty };
+  const b = activeBuyer();
+  if (b && b.prices && b.prices[name] != null) { line.override = +b.prices[name]; line.autoHaggle = true; }
+  data.order.push(line);
+}
+// Sell a raw material as-is. Price defaults to 0 (haggled); everything else behaves like an item line.
+function addMaterialToOrder(name, qty){
+  const ex = data.order.find(o => o.item === name && o.kind === 'material');
+  if (ex) { ex.qty += qty; return; }
+  const line = { id:uid(), item:name, qty, kind:'material' };
   const b = activeBuyer();
   if (b && b.prices && b.prices[name] != null) { line.override = +b.prices[name]; line.autoHaggle = true; }
   data.order.push(line);
@@ -885,9 +921,14 @@ function addToOrder(name, qty){
 function orderAdd(){
   const box = document.getElementById("addItem");
   const qty = Math.max(1, parseInt(document.getElementById("addQty").value)||1);
-  const r = resolveItem((box.value||"").trim());
-  if(!r){ alert("No item matches \""+box.value+"\". Start typing and pick from the list."); return; }
-  addToOrder(r.name, qty);
+  const typed = (box.value||"").trim();
+  const r = resolveItem(typed);
+  if(r){ addToOrder(r.name, qty); }
+  else {
+    const m = resolveMaterial(typed);                 // fall back to selling a raw material
+    if(m){ addMaterialToOrder(m.name, qty); }
+    else { alert("No item or material matches \""+box.value+"\". Start typing and pick from the list."); return; }
+  }
   box.value = ""; box.focus();
   render();
 }
@@ -956,15 +997,36 @@ function ddFilter(q){
   return list.slice(0,60);
 }
 function ddMeta(r){ return esc(r.fam||"")+" · "+esc(r.slot||""); }
+// Order search entries: craftable items first, then raw materials (sold as-is). Each is tagged with kind.
+function orderEntries(q){
+  q=(q||"").toLowerCase().trim();
+  var items=data.recipes.slice(), mats=data.materials.slice();
+  if(q){ items=items.filter(function(r){return r.name.toLowerCase().indexOf(q)>=0;});
+         mats=mats.filter(function(m){return m.name.toLowerCase().indexOf(q)>=0;}); }
+  items.sort(function(a,b){return a.name.localeCompare(b.name);});
+  mats.sort(function(a,b){return a.name.localeCompare(b.name);});
+  var out=items.slice(0,50).map(function(r){return {kind:'item', name:r.name, r:r};});
+  return out.concat(mats.slice(0,20).map(function(m){return {kind:'material', name:m.name, m:m};})).slice(0,60);
+}
 function openOrderDD(){
   var inp=document.getElementById("addItem"), dd=document.getElementById("addDD"); if(!dd) return;
-  var list=ddFilter(inp.value); ddState={open:"add",idx:list.length?0:-1,items:list};
+  var list=orderEntries(inp.value); ddState={open:"add",idx:list.length?0:-1,items:list};
   if(!list.length){ dd.innerHTML='<div class="dd-empty">No match — keep typing.</div>'; dd.style.display=""; return; }
   var cust=activeCustomer();
-  dd.innerHTML=list.map(function(r,i){
-    var c=calc(r,cust.markup), cm=maxCraftable(r.name);
-    return '<div class="dd-row'+(i===ddState.idx?' active':'')+'" data-i="'+i+'" onmousedown="ddPick(\'add\','+i+')" onmouseover="ddHover('+i+')">'
-      +'<div style="display:flex;gap:8px;align-items:center">'
+  dd.innerHTML=list.map(function(e,i){
+    var head='<div class="dd-row'+(i===ddState.idx?' active':'')+'" data-i="'+i+'" onmousedown="ddPick(\'add\','+i+')" onmouseover="ddHover('+i+')">'
+      +'<div style="display:flex;gap:8px;align-items:center">';
+    if(e.kind==='material'){
+      var m=e.m, stk=+m.stock||0;
+      return head
+        +'<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;color:var(--ink)">'+esc(m.name)+' <span class="pill">raw</span></div>'
+        +'<div style="font-size:11px;color:var(--steel)">raw material · sell as-is</div></div>'
+        +'<div style="text-align:right"><div style="font-size:13px;font-weight:600;color:var(--dim)">haggle</div>'
+        +'<div style="font-size:11px;color:var('+(stk>0?'--good':'--ember')+')">stock '+stk+'</div></div>'
+        +'</div></div>';
+    }
+    var r=e.r, c=calc(r,cust.markup), cm=maxCraftable(r.name);
+    return head
       +'<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;color:var(--ink)">'+esc(r.name)+'</div>'
       +'<div style="font-size:11px;color:var(--steel)">'+ddMeta(r)+'</div></div>'
       +'<div style="text-align:right"><div style="font-size:13px;font-weight:600;color:var(--gold)">'+money(c.price)+'</div>'
@@ -998,10 +1060,11 @@ function ddPaintActive(){ var dd=document.getElementById(ddState.open==="qq"?"qq
   var rows=dd.querySelectorAll(".dd-row");
   for(var k=0;k<rows.length;k++){ var on=(+rows[k].getAttribute("data-i")===ddState.idx); rows[k].classList.toggle("active",on); if(on)rows[k].scrollIntoView({block:"nearest"}); } }
 function ddPick(which,i){
-  var r=ddState.items[i]; if(!r) return;
-  if(which==="add"){ var qty=Math.max(1,parseInt(document.getElementById("addQty").value)||1); addToOrder(r.name,qty);
+  var e=ddState.items[i]; if(!e) return;
+  if(which==="add"){ var qty=Math.max(1,parseInt(document.getElementById("addQty").value)||1);
+    if(e.kind==='material') addMaterialToOrder(e.name,qty); else addToOrder(e.name,qty);
     var inp=document.getElementById("addItem"); inp.value=""; ddClose(); render(); inp.focus(); }
-  else { var q=document.getElementById("qqItem"); q.value=r.name; ddClose(); render(); }
+  else { var q=document.getElementById("qqItem"); q.value=e.name; ddClose(); render(); }
 }
 function ddKey(which,e){
   if(ddState.open!==which){ if(e.key==="ArrowDown"){ (which==="add"?openOrderDD():openQQDD()); e.preventDefault(); } return; }
@@ -1036,7 +1099,7 @@ function savePreset(){
   if(!data.order.length){ alert("Add items to the order first, then save it as a preset."); return; }
   const name = (prompt("Preset name (e.g. Full Steel Armor Set):")||"").trim();
   if(!name) return;
-  const items = data.order.map(o=>({item:o.item, qty:o.qty}));
+  const items = data.order.map(o=>({item:o.item, qty:o.qty, kind:o.kind||'item'}));
   const existing = data.presets.find(p=>norm(p.name)===norm(name));
   if(existing){ if(!confirm('"'+name+'" exists. Overwrite it?')) return; existing.items = items; }
   else data.presets.push({ id:uid(), name, items });
@@ -1046,7 +1109,10 @@ function loadPreset(){
   const sel = document.getElementById("presetSel"); const p = (data.presets||[]).find(x=>x.id===sel.value);
   if(!p){ alert("No preset selected."); return; }
   let added=0, missing=[];
-  p.items.forEach(it=>{ if(data.recipes.find(r=>r.name===it.item)){ addToOrder(it.item, it.qty); added++; } else missing.push(it.item); });
+  p.items.forEach(it=>{
+    if(it.kind==='material'){ if(data.materials.find(m=>m.name===it.item)){ addMaterialToOrder(it.item, it.qty); added++; } else missing.push(it.item); }
+    else if(data.recipes.find(r=>r.name===it.item)){ addToOrder(it.item, it.qty); added++; }
+    else missing.push(it.item); });
   render();
   if(missing.length) alert("Loaded "+added+" line(s). Skipped (no longer in database): "+missing.join(", "));
 }
@@ -1062,21 +1128,32 @@ function orderOverride(i,v){ const o=data.order[i]; o.override=(v===""||v==null)
 
 // Whole-order totals. Bulk discount keys off TOTAL item count, not any single line.
 function linePrice(o, markup){
+  const has=(o.override!==undefined && o.override!==null && o.override!=="");
+  if(o.kind==='material'){                          // raw material sold as-is: no formula, haggled from 0
+    const m=data.materials.find(x=>x.name===o.item);
+    const cost=m?(+m.price||0):0;                    // my acquisition cost per unit
+    return { kind:'material', found:!!m, mat:cost, formula:0, unit: has?(+o.override||0):0, overridden:has };
+  }
   const r=data.recipes.find(x=>x.name===o.item);
   const c=r?calc(r,markup):{price:0,mat:0};
-  const has=(o.override!==undefined && o.override!==null && o.override!=="");
   return { r, mat:c.mat, formula:c.price, unit: has?(+o.override||0):c.price, overridden:has };
 }
 function orderTotals(cust){
   const markup = cust ? cust.markup : stdMarkup();
-  let sub=0, cost=0, qtyTotal=0;
-  data.order.forEach(o=>{ const lp=linePrice(o,markup); if(!lp.r) return;
-    sub+=lp.unit*o.qty; cost+=lp.mat*o.qty; qtyTotal+=o.qty; });
+  const countMats = data.settings.bulkCountsMaterials === true;   // do raw-material lines join the bulk discount?
+  let sub=0, cost=0, qtyTotal=0, discBase=0;
+  data.order.forEach(o=>{ const lp=linePrice(o,markup);
+    const isMat = lp.kind==='material';
+    if(isMat){ if(!lp.found) return; } else if(!lp.r) return;
+    const val = lp.unit*o.qty;
+    sub += val; cost += lp.mat*o.qty;
+    if(!isMat || countMats){ qtyTotal += o.qty; discBase += val; }  // materials count only when enabled
+  });
   const isBase = !cust || !data.customers[0] || cust.id==null || cust.id===data.customers[0].id;
   const stack = data.settings.stackBulk !== false;
   const rawBulk = tierFor(qtyTotal);
   const bulkPct = (stack || isBase) ? rawBulk : 0;
-  const disc = sub*bulkPct/100;
+  const disc = discBase*bulkPct/100;
   return { sub, disc, pct:bulkPct, bulkPct, custPct:0,
            bulkSuppressed:(rawBulk>0 && bulkPct===0), total:sub-disc, cost, qtyTotal };
 }
@@ -1117,7 +1194,9 @@ function planConsumption(){
     if(remain>1e-9){ const y=+it.yield||1, batches=remain/(y>0?y:1);
       (it.lines||[]).forEach(l=>need(l.ingredient, batches*(+l.qty||0))); }
   }
-  data.order.forEach(o=>{ const r=data.recipes.find(x=>x.name===o.item);
+  data.order.forEach(o=>{
+    if(o.kind==='material'){ if(data.materials.find(x=>x.name===o.item)) raw[o.item]=(raw[o.item]||0)+(+o.qty||0); return; }
+    const r=data.recipes.find(x=>x.name===o.item);
     if(r)(r.lines||[]).forEach(l=>need(l.ingredient,(+l.qty||0)*o.qty)); });
   return { inter, raw };
 }
@@ -1297,6 +1376,26 @@ function renderCraft(){
   if (sel) sel.innerHTML = (data.customers||[]).map(c=>
     '<option value="'+c.id+'"'+(c.id===cust.id?' selected':'')+'>'+esc(c.name)+' (×'+c.markup+')</option>').join("");
   data.order.forEach((o,i) => {
+    if (o.kind==='material'){
+      const lp = linePrice(o, cust.markup);
+      if (!lp.found){ body.insertAdjacentHTML("beforeend",
+        `<tr><td class="bad">${esc(o.item)} — material removed</td><td class="n" colspan="4"></td>
+          <td><button class="x" onclick="orderDel(${i})">✕</button></td></tr>`); return; }
+      body.insertAdjacentHTML("beforeend", `
+        <tr>
+          <td>${esc(o.item)} <span class="pill" title="Raw material sold as-is — price is haggled">raw</span></td>
+          <td class="n"><input class="bare n w50" type="number" min="0" step="1" value="${o.qty}"
+                onchange="orderQty(${i},this.value)"></td>
+          <td class="n dim">${exact(lp.mat)}</td>
+          <td class="n"><input class="bare n w70${lp.overridden?' good':''}" type="number" min="0" step="1"
+                title="Haggled price — raw materials have no formula price"
+                placeholder="${money(0)}" value="${lp.overridden?lp.unit:''}"
+                onchange="orderOverride(${i},this.value)"></td>
+          <td class="n gold">${money(lp.unit*o.qty)}</td>
+          <td><button class="x" onclick="orderDel(${i})">✕</button></td>
+        </tr>`);
+      return;
+    }
     const r = data.recipes.find(x => x.name === o.item);
     if (!r){ body.insertAdjacentHTML("beforeend",
       `<tr><td class="bad">${esc(o.item)} — missing</td><td class="n" colspan="4"></td>
@@ -1829,7 +1928,11 @@ function renderCustomers(){
     </tr>`).join("");
 }
 function addCustomer(){ data.customers.push({id:uid(),name:"New customer",markup:2,note:"",qq:true}); render(); }
-function syncStackBox(){ const sb=document.getElementById("stackBulk"); if(sb) sb.checked = data.settings.stackBulk !== false; }
+function syncStackBox(){
+  const sb=document.getElementById("stackBulk"); if(sb) sb.checked = data.settings.stackBulk !== false;
+  const bm=document.getElementById("bulkMats"); if(bm) bm.checked = data.settings.bulkCountsMaterials === true;
+  const ro=document.getElementById("roundOn"); if(ro) ro.checked = data.settings.roundOn !== false;
+}
 function delCustomer(i){
   if(i===0) return;
   const removed=data.customers[i]; data.customers.splice(i,1);
@@ -1838,7 +1941,7 @@ function delCustomer(i){
 }
 
 function bindSettings(){
-  ["currency","defaultLabor","roundTo"].forEach(id => {
+  ["currency","defaultLabor"].forEach(id => {
     const el = document.getElementById(id);
     el.value = data.settings[id];
     el.addEventListener("input", () => {
