@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Keisaal Blacksmith — Price Calculator</title>
+<title>Keizaal Blacksmith — Price Calculator</title>
 <style>
   :root {
     --bg:#16130f; --panel:#211c16; --panel-2:#2b241b; --panel-3:#332a1f; --line:#3d3325;
@@ -139,7 +139,7 @@
 <!-- ══ ACCESS GATE ══ -->
 <div id="gate" class="overlay">
   <div class="gate-card">
-    <h2>⚒ Keisaal Smithy</h2>
+    <h2>⚒ Keizaal Smithy</h2>
     <p class="sub">Weekly access tool. Enter your code to open the calculator.</p>
     <label for="gateCode">Access code</label>
     <input id="gateCode" placeholder="KSL-XXXX-XXXX-XXXX" autocomplete="off" spellcheck="false"
@@ -231,12 +231,13 @@
 </div>
 
 <div class="top"><div class="top-in">
-  <div class="brand">⚒ Keisaal Smithy</div>
+  <div class="brand">⚒ Keizaal Smithy</div>
   <nav>
     <button id="t-craft"     class="on" onclick="tab('craft')">Craft</button>
     <button id="t-database"  onclick="tab('database')">Database</button>
     <button id="t-inventory" onclick="tab('inventory')">Inventory</button>
     <button id="t-sales"     onclick="tab('sales')">Sales</button>
+    <button id="t-buyers"    onclick="tab('buyers')">Buyers</button>
     <button id="t-add"       onclick="tab('add')">Add</button>
     <button id="t-recipes"   onclick="tab('recipes')">Recipes</button>
     <button id="t-settings"  onclick="tab('settings')">Settings</button>
@@ -272,7 +273,10 @@
         onkeydown="if(event.key==='Enter')orderAdd()">
       <button class="b pri" onclick="orderAdd()">+ Add</button>
       <button class="b" onclick="orderClear()">Clear</button>
-      <label class="row" style="gap:5px;margin-left:8px">Customer
+      <label class="row" style="gap:5px;margin-left:8px">Buyer
+        <select id="buyerSel" style="width:auto" onchange="onBuyerChange(this.value)"></select></label>
+      <button class="b" onclick="addBuyerQuick()" title="Add a new buyer">+ buyer</button>
+      <label class="row" style="gap:5px">Rate
         <select id="custSel" style="width:auto" onchange="data.settings.customer=this.value; render()"></select></label>
     </div>
     <div class="row" style="margin-top:8px">
@@ -303,6 +307,7 @@
           <tbody id="orderBody"></tbody>
         </table>
         <div id="orderEmpty" class="empty">No items yet — add one above.</div>
+        <div class="note" style="font-size:11px;margin-top:2px">Tip: click any <strong>Price</strong> to haggle — type a custom number for that line.</div>
       </div>
     </div>
 
@@ -330,7 +335,7 @@
         <span class="pill" id="dbCount"></span>
       </span>
     </h3>
-    <p class="hint">Everything you can make, with live costs. Click a column to sort. Edit market price and category inline.</p>
+    <p class="hint">Everything you can make, with live costs. Click a column to sort. Edit category inline.</p>
     <table><thead><tr>
       <th class="s" onclick="dbSort('name')">Item</th>
       <th class="s" onclick="dbSort('fam')">Material</th>
@@ -339,9 +344,6 @@
       <th class="s n" onclick="dbSort('mat')">Materials</th>
       <th class="s n" onclick="dbSort('labor')">Labor</th>
       <th class="s n" onclick="dbSort('price')">Your price</th>
-      <th class="s n" onclick="dbSort('market')">Market</th>
-      <th class="s n" onclick="dbSort('profit')">Profit</th>
-      <th class="s n" onclick="dbSort('margin')">Margin</th>
     </tr></thead><tbody id="dbBody"></tbody></table>
   </div>
 
@@ -393,9 +395,25 @@
   <div class="box">
     <h3>Sales Log <span class="sp"><span class="pill" id="salesCount"></span><button class="b" onclick="clearSales()">Clear log</button></span></h3>
     <table><thead><tr>
-      <th>When</th><th>Customer</th><th>Items</th><th class="n">Revenue</th><th class="n">Profit</th><th></th>
+      <th>When</th><th>Buyer</th><th>Rate</th><th>Items</th><th class="n">Revenue</th><th class="n">Profit</th><th></th>
     </tr></thead><tbody id="salesBody"></tbody></table>
     <div id="salesEmpty" class="empty">No sales yet — check out an order on the Craft tab.</div>
+  </div>
+</div>
+
+<!-- ══ BUYERS ══ -->
+<div id="tab-buyers" class="tab">
+  <div class="box">
+    <h3>Buyers <span class="sp"><span class="dim" id="walkInfo" style="font-size:11px"></span><button class="b" onclick="addBuyerFull()">+ Buyer</button></span></h3>
+    <p class="hint">Click a buyer's name for their full history. Stats come from your sales log.</p>
+    <table><thead><tr><th>Name</th><th>Default rate</th><th class="n">Orders</th><th class="n">Spent</th><th class="n">Profit</th><th>Last</th><th>Notes</th><th></th></tr></thead>
+      <tbody id="buyersBody"></tbody></table>
+  </div>
+  <div class="box">
+    <h3>Demand &amp; prices <span class="sp"><span class="pill">from real sales</span></span></h3>
+    <p class="hint">What actually sells and the average price paid (haggling included).</p>
+    <table><thead><tr><th>Item</th><th class="n">Sold</th><th class="n">Avg price</th></tr></thead>
+      <tbody id="demandBody"></tbody></table>
   </div>
 </div>
 
@@ -404,7 +422,7 @@
   <div class="box">
     <h3>Bulk Import <span class="sp"><span class="pill">paste many items at once</span></span></h3>
     <p class="hint">
-      One item per line: <code>Name | ingredients | market price</code> (price optional).
+      One item per line: <code>Name | ingredients</code>.
       Ingredients accept either <code>2 Iron ingot, 1 Leather strip</code> or the game's own
       <code>Iron Ingot (3), 4 Steel Ingot (1)</code> format. Send me forge screenshots and I'll
       hand you a block to paste straight in here.
@@ -412,7 +430,7 @@
     <textarea id="bulk" rows="7" spellcheck="false"
       style="width:100%;background:var(--panel-2);border:1px solid var(--line);color:var(--ink);
              border-radius:5px;padding:6px 8px;font-family:Consolas,monospace;font-size:12px;resize:vertical"
-      placeholder="Iron Helmet | 2 Iron ingot, 1 Leather strip | 60&#10;Iron Boots | 3 Iron ingot, 2 Leather strip | 25&#10;Iron Gauntlets | 2 Iron ingot, 1 Leather strip | 25"
+      placeholder="Iron Helmet | 2 Iron ingot, 1 Leather strip&#10;Iron Boots | 3 Iron ingot, 2 Leather strip&#10;Iron Gauntlets | 2 Iron ingot, 1 Leather strip"
       oninput="previewBulk()"></textarea>
     <div id="bulkPreview" class="note"></div>
     <div class="row" style="margin-top:7px">
@@ -429,14 +447,13 @@
     </p>
     <div class="row" style="margin-bottom:7px">
       <input id="pName" placeholder="Item name  (e.g. Northern Iron Helmet)" style="max-width:280px">
-      <input id="pVal" class="n w80" type="number" placeholder="market" title="Market price (optional)">
     </div>
     <input id="pReq" placeholder="Requires: Iron Ingot (3), 4 Steel Ingot (1), 3 Leather Strips (12)"
            oninput="previewPaste()" onkeydown="if(event.key==='Enter')commitPaste()">
     <div id="pPreview" class="note"></div>
     <div class="row" style="margin-top:7px">
       <button class="b pri" onclick="commitPaste()">+ Add item</button>
-      <button class="b" onclick="document.getElementById('pName').value='';document.getElementById('pReq').value='';document.getElementById('pVal').value='';previewPaste()">Clear</button>
+      <button class="b" onclick="document.getElementById('pName').value='';document.getElementById('pReq').value='';previewPaste()">Clear</button>
       <span class="dim" style="font-size:11.5px">Unknown ingredients get created as raw materials at 0g — set their price in Recipes.</span>
     </div>
   </div>
@@ -462,7 +479,7 @@
       <h3>Verified Recipe Pack</h3>
       <p class="hint">
         Vanilla recipes I could confirm from public sources. Adds only what's missing —
-        your existing items, prices and market data are left untouched.
+        your existing items and prices are left untouched.
       </p>
       <div id="packList" class="note"></div>
       <div class="row" style="margin-top:8px">
@@ -660,7 +677,8 @@ const DEFAULT = {
     { id:uid(), name:"Leather Bracers", value:null, labor:null, demand:1, lines:[ L("Leather",1), L("Leather strip",2) ] },
   ],
   order: [],
-  presets: []
+  presets: [],
+  buyers: []
 };
 
 const KEY = "keisaal_calc_v7";
@@ -673,7 +691,7 @@ function load(){
 }
 function fix(d){
   d.settings = d.settings || {}; if (!d.settings.tiers) d.settings.tiers = [];
-  d.materials ||= []; d.intermediates ||= []; d.recipes ||= []; d.order ||= []; d.presets ||= [];
+  d.materials ||= []; d.intermediates ||= []; d.recipes ||= []; d.order ||= []; d.presets ||= []; d.buyers ||= [];
   d.settings.markup ??= 2; d.settings.markupFriend ??= 1.5; d.settings.friend ??= false;
   d.till = d.till || { revenue:0, cost:0, sales:0, items:0, purchases:0 }; d.till.purchases ??= 0;
   d.sales = d.sales || [];
@@ -685,6 +703,8 @@ function fix(d){
   d.settings.customer ??= d.customers[0].id;
   d.settings.stackBulk ??= true;
   d.customers.forEach(c => { c.note ??= ""; c.qq ??= true; });
+  d.buyers.forEach(b => { b.note ??= ""; b.profileId ??= null; b.prices ??= {}; });
+  d.settings.buyer ??= null;
   d.materials.forEach(x => x.stock ??= 0);
   d.intermediates.forEach(x => x.stock ??= 0);
   return d;
@@ -756,7 +776,7 @@ const ceil = n => Math.ceil(Math.round(n*1000)/1000);
 
 /* ═════════ Tabs ═════════ */
 function tab(n){
-  ["craft","database","inventory","sales","add","recipes","settings"].forEach(t => {
+  ["craft","database","inventory","sales","buyers","add","recipes","settings"].forEach(t => {
     document.getElementById("tab-"+t).classList.toggle("on", t===n);
     document.getElementById("t-"+t).classList.toggle("on", t===n);
   });
@@ -776,7 +796,11 @@ function resolveItem(typed){
 }
 function addToOrder(name, qty){
   const ex = data.order.find(o => o.item === name);
-  if (ex) ex.qty += qty; else data.order.push({ id:uid(), item:name, qty });
+  if (ex) { ex.qty += qty; return; }
+  const line = { id:uid(), item:name, qty };
+  const b = activeBuyer();
+  if (b && b.prices && b.prices[name] != null) { line.override = +b.prices[name]; line.autoHaggle = true; }
+  data.order.push(line);
 }
 function orderAdd(){
   const box = document.getElementById("addItem");
@@ -788,6 +812,33 @@ function orderAdd(){
   render();
 }
 function orderClear(){ data.order = []; render(); }
+function activeBuyer(){ return (data.buyers||[]).find(b=>b.id===data.settings.buyer)||null; }
+function fillBuyerSel(){
+  const sel=document.getElementById("buyerSel"); if(!sel) return;
+  const b=activeBuyer();
+  sel.innerHTML='<option value="">— walk-in —</option>'
+    +(data.buyers||[]).slice().sort((a,c)=>a.name.localeCompare(c.name))
+      .map(x=>'<option value="'+x.id+'"'+(b&&b.id===x.id?' selected':'')+'>'+esc(x.name)+'</option>').join("");
+}
+function onBuyerChange(id){
+  data.settings.buyer = id||null;
+  const b=activeBuyer();
+  if(b){ if(b.profileId && (data.customers||[]).some(c=>c.id===b.profileId)) data.settings.customer=b.profileId; }
+  else if(data.customers[0]) data.settings.customer=data.customers[0].id;
+  data.order.forEach(o=>{
+    if(o.override!=null && o.override!=="" && !o.autoHaggle) return;
+    if(b && b.prices && b.prices[o.item]!=null){ o.override=+b.prices[o.item]; o.autoHaggle=true; }
+    else if(o.autoHaggle){ o.override=null; o.autoHaggle=false; }
+  });
+  render();
+}
+function addBuyerQuick(){
+  const name=(prompt("New buyer name:")||"").trim(); if(!name) return;
+  const ex=(data.buyers||[]).find(b=>norm(b.name)===norm(name));
+  if(ex){ data.settings.buyer=ex.id; }
+  else { const id=uid(); data.buyers.push({id,name,note:"",profileId:data.settings.customer||null,prices:{}}); data.settings.buyer=id; }
+  render();
+}
 let ddState={open:null,idx:-1,items:[]};
 function qqCustomers(){ var l=(data.customers||[]).filter(function(c){return c.qq!==false;}); return l.length?l:(data.customers||[]); }
 function ddFilter(q){
@@ -900,7 +951,7 @@ function delPreset(){
 }
 function orderDel(i){ data.order.splice(i,1); render(); }
 function orderQty(i,v){ data.order[i].qty = Math.max(0, parseFloat(v)||0); render(); }
-function orderOverride(i,v){ data.order[i].override = (v===""||v==null)?null:(parseFloat(v)||0); render(); }
+function orderOverride(i,v){ const o=data.order[i]; o.override=(v===""||v==null)?null:(parseFloat(v)||0); o.autoHaggle=false; render(); }
 
 // Whole-order totals. Bulk discount keys off TOTAL item count, not any single line.
 function linePrice(o, markup){
@@ -966,12 +1017,12 @@ function planConsumption(){
 // Checkout = the order was crafted and sold: consume stock, bank the sale, clear order.
 function checkout(){
   if(!data.order.length){ alert("Order is empty."); return; }
-  const cust=activeCustomer(), t=orderTotals(cust), plan=planConsumption();
+  const cust=activeCustomer(), buyer=activeBuyer(), t=orderTotals(cust), plan=planConsumption();
   const short=[];
   Object.entries(plan.raw).forEach(([k,q])=>{ const m=data.materials.find(x=>x.name===k);
     const have=m?+m.stock||0:0; if(q>have+1e-9) short.push("  "+k+": need "+ceil(q)+", have "+have); });
   const items=data.order.reduce((s,o)=>s+o.qty,0);
-  let msg="Checkout "+items+" item(s) — "+cust.name
+  let msg="Checkout "+items+" item(s) — "+(buyer?buyer.name+" ("+cust.name+" rate)":cust.name)
     +"\n\nRevenue "+money(t.total)+"\nMaterial cost "+exact(t.cost)+"\nProfit "+money(t.total-t.cost);
   if(short.length) msg+="\n\n⚠ Short on stock (will floor at 0):\n"+short.join("\n");
   msg+="\n\nProceed? This deducts materials from inventory and logs the sale.";
@@ -981,10 +1032,11 @@ function checkout(){
   Object.entries(plan.raw).forEach(([k,q])=>{ const m=data.materials.find(x=>x.name===k);
     if(m) m.stock=Math.max(0,(+m.stock||0)-q); });
   data.till.revenue+=t.total; data.till.cost+=t.cost; data.till.sales+=1; data.till.items+=items;
-  data.sales.push({ id:uid(), t:Date.now(), customer:cust.name,
-    items:data.order.map(o=>({name:o.item, qty:o.qty})),
+  data.sales.push({ id:uid(), t:Date.now(), customer:cust.name, buyer:buyer?buyer.name:"", buyerId:buyer?buyer.id:null,
+    items:data.order.map(o=>({name:o.item, qty:o.qty, unit:linePrice(o,cust.markup).unit})),
     revenue:t.total, cost:t.cost, profit:t.total-t.cost, bulkPct:t.bulkPct, custPct:t.custPct,
     consumed:{ inter:{...plan.inter}, raw:{...plan.raw} } });
+  if(buyer){ buyer.prices=buyer.prices||{}; data.order.forEach(o=>{ if(o.override!=null && o.override!=="") buyer.prices[o.item]=+o.override; }); }
   data.order=[]; render();
 }
 function resetTill(){
@@ -1021,6 +1073,7 @@ function renderSales(){
     const totPct=(sale.bulkPct||0)+(sale.custPct||0);
     const disc=totPct? ' <span class="pill">−'+totPct+'%</span>':'';
     return '<tr><td class="dim" style="white-space:nowrap">'+when+'</td>'
+      +'<td>'+esc(sale.buyer||"—")+'</td>'
       +'<td>'+esc(sale.customer||"—")+disc+'</td>'
       +'<td class="dim">'+items+'</td>'
       +'<td class="n gold">'+money(sale.revenue)+'</td>'
@@ -1040,6 +1093,69 @@ function undoSale(id){
   data.sales.splice(i,1); render();
 }
 function clearSales(){ if(!confirm("Clear the sales log? Till totals are kept.")) return; data.sales=[]; render(); }
+let buyerOpen=new Set();
+function toggleBuyer(id){ if(buyerOpen.has(id)) buyerOpen.delete(id); else buyerOpen.add(id); renderBuyers(); }
+function clearBuyerPrice(i,item){ const b=data.buyers[i]; if(b&&b.prices){ delete b.prices[item]; render(); } }
+function buyerStats(id){
+  const st={rev:0,profit:0,n:0,last:0,first:0,items:{}};
+  (data.sales||[]).forEach(s=>{ if((s.buyerId||"__walk")!==id) return;
+    st.rev+=s.revenue; st.profit+=s.profit; st.n++;
+    if((s.t||0)>st.last)st.last=s.t; if(!st.first||(s.t&&s.t<st.first))st.first=s.t;
+    (s.items||[]).forEach(it=>{ const d=st.items[it.name]||(st.items[it.name]={qty:0,rev:0}); d.qty+=it.qty; d.rev+=(+it.unit||0)*it.qty; });
+  });
+  return st;
+}
+function buyerDetailCell(b){
+  const st=buyerStats(b.id); const i=data.buyers.indexOf(b);
+  const items=Object.entries(st.items).sort((a,c)=>c[1].qty-a[1].qty);
+  const top=items.length?items[0][0]:null;
+  const avg=st.n?st.rev/st.n:0;
+  const savedN=b.prices?Object.keys(b.prices).length:0;
+  const irows=items.length? items.map(function(e){ var nm=e[0],d=e[1];
+    var saved=(b.prices&&b.prices[nm]!=null)?b.prices[nm]:null;
+    return '<tr><td>'+esc(nm)+(nm===top?' <span class="pill">most bought</span>':'')+'</td>'
+      +'<td class="n">'+d.qty+'×</td><td class="n dim">'+(d.qty?money(d.rev/d.qty):'—')+'</td><td class="n">'+money(d.rev)+'</td>'
+      +'<td class="n">'+(saved!=null?('<span class="gold">'+money(saved)+'</span> <button class="x" data-item="'+esc(nm)+'" title="Forget this price" onclick="clearBuyerPrice('+i+', this.getAttribute(\'data-item\'))">✕</button>'):'<span class="dim">—</span>')+'</td></tr>';
+  }).join(""): '<tr><td colspan="5" class="empty">No purchases yet.</td></tr>';
+  return '<td colspan="8" style="background:var(--panel-2)"><div style="padding:8px 10px">'
+    +'<div class="row" style="gap:8px;margin-bottom:6px"><span class="dim" style="font-size:11px">Name</span>'
+    +'<input class="bare" value="'+esc(b.name)+'" onchange="data.buyers['+i+'].name=this.value.trim()||\'Buyer\'; render()"></div>'
+    +'<div class="dim" style="font-size:12px;margin-bottom:6px">'+st.n+' order(s) · spent '+money(st.rev)+' · profit '+money(st.profit)+' · avg order '+money(avg)+(st.first?' · since '+new Date(st.first).toLocaleDateString():'')+(savedN?' · '+savedN+' saved price(s)':'')+'</div>'
+    +'<table style="max-width:600px"><thead><tr><th>Item</th><th class="n">Bought</th><th class="n">Avg paid</th><th class="n">Total</th><th class="n">Your saved price</th></tr></thead><tbody>'+irows+'</tbody></table>'
+    +'</div></td>';
+}
+function renderBuyers(){
+  const bb=document.getElementById("buyersBody"); if(!bb) return;
+  const list=(data.buyers||[]).slice().sort((a,c)=>a.name.localeCompare(c.name));
+  const profOpts=(id)=>(data.customers||[]).map(c=>'<option value="'+c.id+'"'+(c.id===id?' selected':'')+'>'+esc(c.name)+'</option>').join("");
+  bb.innerHTML=list.map(function(b){
+    const st=buyerStats(b.id); const i=data.buyers.indexOf(b); const op=buyerOpen.has(b.id);
+    const last=st.last? new Date(st.last).toLocaleDateString():"—";
+    var main='<tr>'
+      +'<td><button onclick="toggleBuyer(\''+b.id+'\')" style="background:none;border:none;color:var(--gold);cursor:pointer;padding:0;font-weight:600;font-size:13px">'+(op?'▾ ':'▸ ')+esc(b.name)+'</button></td>'
+      +'<td><select class="bare" onchange="data.buyers['+i+'].profileId=this.value||null; render()"><option value="">—</option>'+profOpts(b.profileId)+'</select></td>'
+      +'<td class="n dim">'+st.n+'</td>'
+      +'<td class="n gold">'+money(st.rev)+'</td>'
+      +'<td class="n '+(st.profit>=0?'good':'bad')+'">'+money(st.profit)+'</td>'
+      +'<td class="dim">'+last+'</td>'
+      +'<td><input class="bare" style="min-width:160px" placeholder="notes…" value="'+esc(b.note||'')+'" onchange="data.buyers['+i+'].note=this.value; render()"></td>'
+      +'<td><button class="x" onclick="delBuyer('+i+')">✕</button></td></tr>';
+    if(op) main+='<tr>'+buyerDetailCell(b)+'</tr>';
+    return main;
+  }).join("") || '<tr><td colspan="8" class="empty">No buyers yet — add one on the Craft tab or here.</td></tr>';
+  const agg={}; (data.sales||[]).forEach(s=>{ if(!s.buyerId){ const a=agg.__walk||(agg.__walk={rev:0,profit:0,n:0}); a.rev+=s.revenue; a.profit+=s.profit; a.n++; } });
+  const w=agg.__walk, wl=document.getElementById("walkInfo");
+  if(wl) wl.innerHTML = w? ('walk-in: '+w.n+' order(s) · '+money(w.rev)+' · profit '+money(w.profit)) : '';
+  const dem={}; (data.sales||[]).forEach(s=>(s.items||[]).forEach(it=>{ const d=dem[it.name]||(dem[it.name]={qty:0,rev:0}); d.qty+=it.qty; d.rev+=(+it.unit||0)*it.qty; }));
+  const dl=document.getElementById("demandBody");
+  const rows=Object.entries(dem).sort((a,c)=>c[1].qty-a[1].qty);
+  if(dl) dl.innerHTML= rows.length? rows.map(([nm,d])=>'<tr><td>'+esc(nm)+'</td><td class="n gold">'+d.qty+'×</td><td class="n dim">'+(d.qty?money(d.rev/d.qty):'—')+'</td></tr>').join("") : '<tr><td colspan="3" class="empty">No sales yet.</td></tr>';
+}
+function addBuyerFull(){ const name=(prompt("New buyer name:")||"").trim(); if(!name) return;
+  if((data.buyers||[]).some(b=>norm(b.name)===norm(name))){ alert("That buyer already exists."); return; }
+  data.buyers.push({id:uid(),name,note:"",profileId:null,prices:{}}); render(); }
+function delBuyer(i){ if(!confirm('Delete buyer "'+data.buyers[i].name+'"? Their past sales stay in the log.')) return;
+  const id=data.buyers[i].id; if(data.settings.buyer===id) data.settings.buyer=null; data.buyers.splice(i,1); render(); }
 function renderInsights(){
   const box=document.getElementById("insightsBox"); if(!box) return;
   const sales=data.sales||[];
@@ -1176,11 +1292,8 @@ function renderDatabase(){
   const rows = data.recipes
     .map(r => {
       const c = calc(r);
-      const market = (r.value == null || r.value === "") ? null : +r.value;
-      const profit = market === null ? null : market - c.mat;
-      const margin = (market === null || c.mat <= 0) ? null : (profit / c.mat) * 100;
       return { r, name:r.name, fam:r.fam||"Other", slot:r.slot||"Other", canmake:maxCraftable(r.name),
-               mat:c.mat, labor:c.labor, price:c.price, market, profit, margin };
+               mat:c.mat, labor:c.labor, price:c.price };
     })
     .filter(x => x.name.toLowerCase().includes(q)
               && (!fFam  || x.fam  === fFam)
@@ -1195,7 +1308,6 @@ function renderDatabase(){
     rows.length + (rows.length === data.recipes.length ? " items" : ` of ${data.recipes.length}`);
   document.getElementById("dbBody").innerHTML = rows.map(x => {
     const idx = data.recipes.indexOf(x.r);
-    const mCol = x.margin === null ? "dim" : (x.margin <= 0 ? "bad" : x.margin < 50 ? "ember" : "good");
     return `<tr>
       <td>${esc(x.name)}</td>
       <td><input class="bare" style="width:82px" value="${esc(x.fam)}"
@@ -1206,11 +1318,6 @@ function renderDatabase(){
       <td class="n dim">${exact(x.mat)}</td>
       <td class="n dim">${exact(x.labor)}</td>
       <td class="n gold">${money(x.price)}</td>
-      <td class="n"><input class="bare n w70" type="number" min="0" step="1" placeholder="—"
-            value="${x.market===null?"":x.market}"
-            onchange="data.recipes[${idx}].value=(this.value===''?null:(parseFloat(this.value)||0)); render()"></td>
-      <td class="n ${x.profit===null?"dim":(x.profit>0?"good":"bad")}">${x.profit===null?"—":(x.profit>0?"+":"")+exact(x.profit)}</td>
-      <td class="n ${mCol}">${x.margin===null?"—":Math.round(x.margin)+"%"}</td>
     </tr>`;
   }).join("");
 
@@ -1349,10 +1456,9 @@ function commitPaste(){
     if (!ing){ ing = p.raw; data.materials.push({ id:uid(), name:ing, price:0, stock:0 }); }
     return L(ing, p.qty);
   });
-  const v = parseFloat(document.getElementById("pVal").value);
-  data.recipes.push({ id:uid(), name, value:isNaN(v)?null:v, labor:null, demand:1,
+  data.recipes.push({ id:uid(), name, labor:null, demand:1,
                       slot:autoSlot(name), fam:autoFam(name), lines });
-  ["pName","pReq","pVal"].forEach(i => document.getElementById(i).value = "");
+  ["pName","pReq"].forEach(i => document.getElementById(i).value = "");
   previewPaste(); render();
 }
 
@@ -1393,8 +1499,7 @@ function classifyAll(){
 function parseBulkLine(line){
   const parts = line.split("|").map(s => s.trim());
   if (parts.length < 2 || !parts[0]) return null;
-  const v = parseFloat(parts[2]);
-  return { name:parts[0], parsed:parseRequires(parts[1]), value:isNaN(v)?null:v };
+  return { name:parts[0], parsed:parseRequires(parts[1]) };
 }
 function previewBulk(){
   const el = document.getElementById("bulkPreview");
@@ -1430,7 +1535,7 @@ function commitBulk(){
       if (!ing){ ing = x.raw; data.materials.push({ id:uid(), name:ing, price:0, stock:0 }); }
       return L(ing, x.qty);
     });
-    data.recipes.push({ id:uid(), name:p.name, value:p.value, labor:null, demand:1,
+    data.recipes.push({ id:uid(), name:p.name, labor:null, demand:1,
                         slot:autoSlot(p.name), fam:autoFam(p.name), lines:ls });
     added++;
   });
@@ -1573,9 +1678,6 @@ function renderItemEditor(){
               onchange="data.recipes[${ri}].labor=(this.value===''?null:(parseFloat(this.value)||0)); render()"></div>
           <div class="k"><label>Demand ×</label><input class="n w60" type="number" min="0" step="0.05" value="${r.demand}"
               onchange="data.recipes[${ri}].demand=parseFloat(this.value)||0; render()"></div>
-          <div class="k"><label>Market</label><input class="n w70" type="number" min="0" step="1" placeholder="—"
-              value="${r.value==null?"":r.value}"
-              onchange="data.recipes[${ri}].value=(this.value===''?null:(parseFloat(this.value)||0)); render()"></div>
         </div>
         <div class="note">(${exact(c.mat)} + ${exact(c.labor)} labor) × ${c.markup} × ${c.demand} = <span class="gold">${money(c.price)}</span></div>
       </div></details>`;
@@ -1643,7 +1745,7 @@ function bindSettings(){
 function exportData(){
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:"application/json"}));
-  a.download = "keisaal-prices.json"; a.click();
+  a.download = "keizaal-prices.json"; a.click();
 }
 function importData(inp){
   const f = inp.files[0]; if (!f) return;
@@ -1662,10 +1764,12 @@ function render(){
   classifyAll();
   fillAddItem();
   fillPresetSel();
+  fillBuyerSel();
   fillVariantBase();
   renderCraft();
   renderQuote();
   renderTill();
+  renderBuyers();
   renderDatabase();
   renderInventory();
   renderPack();
@@ -1918,7 +2022,7 @@ function downloadBackup(){
   const blob = new Blob([JSON.stringify({ status: ghState, notes: codeNotes }, null, 2)], { type:"application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = "keisaal-status-backup.json";
+  a.download = "keizaal-status-backup.json";
   a.click(); URL.revokeObjectURL(a.href);
 }
 
