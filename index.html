@@ -126,6 +126,12 @@
   .badge { font-size:10px; padding:1px 6px; border-radius:8px; }
   .badge.ok { background:rgba(111,174,95,.18); color:var(--good); }
   .badge.exp { background:rgba(208,106,90,.18); color:var(--bad); }
+  .dd{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:50;background:var(--panel);border:1px solid var(--gold-2);border-radius:8px;max-height:320px;overflow:auto}
+  .dd-row{padding:7px 10px;cursor:pointer;border-bottom:1px solid var(--line)}
+  .dd-row:last-child{border-bottom:none}
+  .dd-row.active,.dd-row:hover{background:var(--panel-2)}
+  .dd-empty{padding:8px 10px;color:var(--dim);font-size:12px}
+  .dd-head{position:sticky;top:0;background:var(--panel);border-bottom:1px solid var(--line);color:var(--dim);font-size:10px;text-transform:uppercase;letter-spacing:.4px;padding:6px 10px}
 </style>
 </head>
 <body class="locked">
@@ -245,17 +251,23 @@
   <div class="box">
     <h3>Quick Quote <span class="sp"><span class="pill">instant price, no order</span></span></h3>
     <div class="row">
-      <input id="qqItem" list="itemDL" style="min-width:240px" placeholder="Type an item…" autocomplete="off" oninput="renderQuote()">
-      <button class="b" onclick="document.getElementById('qqItem').value='';renderQuote()">Clear</button>
+      <span class="dd-wrap" style="position:relative;display:block;flex:1;min-width:240px">
+        <input id="qqItem" autocomplete="off" placeholder="Type an item…" style="width:100%"
+          oninput="openQQDD();renderQuote()" onkeydown="ddKey('qq',event)" onblur="setTimeout(ddClose,150)">
+        <div id="qqDD" class="dd" style="display:none"></div>
+      </span>
+      <button class="b" onclick="document.getElementById('qqItem').value='';ddClose();renderQuote()">Clear</button>
     </div>
     <div id="qqResult" class="note"></div>
   </div>
   <div class="box">
     <h3>New Order</h3>
     <div class="row">
-      <input id="addItem" list="itemDL" style="min-width:240px" placeholder="Type to search…" autocomplete="off"
-        onkeydown="if(event.key==='Enter')orderAdd()">
-      <datalist id="itemDL"></datalist>
+      <span class="dd-wrap" style="position:relative;display:inline-block;min-width:240px">
+        <input id="addItem" autocomplete="off" placeholder="Type to search…" style="width:100%"
+          oninput="openOrderDD()" onkeydown="ddKey('add',event)" onblur="setTimeout(ddClose,150)">
+        <div id="addDD" class="dd" style="display:none"></div>
+      </span>
       <input id="addQty" class="n w60" type="number" min="1" step="1" value="1"
         onkeydown="if(event.key==='Enter')orderAdd()">
       <button class="b pri" onclick="orderAdd()">+ Add</button>
@@ -508,7 +520,7 @@
     <div class="box">
       <h3>Customers <span class="sp"><button class="b" onclick="addCustomer()">+ Customer</button></span></h3>
       <p class="hint">Each customer is one markup — lower it for people you charge less. Chosen on the Craft page. The first row (Standard) sets the price shown in the Database.</p>
-      <table><thead><tr><th>Name</th><th class="n">Markup ×</th><th>Notes</th><th></th></tr></thead>
+      <table><thead><tr><th>Name</th><th class="n">Markup ×</th><th class="n">Quote</th><th>Notes</th><th></th></tr></thead>
         <tbody id="custBody"></tbody></table>
     </div>
 
@@ -672,7 +684,7 @@ function fix(d){
   }
   d.settings.customer ??= d.customers[0].id;
   d.settings.stackBulk ??= true;
-  d.customers.forEach(c => c.note ??= "");
+  d.customers.forEach(c => { c.note ??= ""; c.qq ??= true; });
   d.materials.forEach(x => x.stock ??= 0);
   d.intermediates.forEach(x => x.stock ??= 0);
   return d;
@@ -753,11 +765,7 @@ function tab(n){
 
 /* ═════════ Craft ═════════ */
 // Grouped by material family — a flat 200-entry list would be unusable.
-function fillAddItem(){
-  const dl = document.getElementById("itemDL"); if(!dl) return;
-  dl.innerHTML = data.recipes.slice().sort((a,b)=>a.name.localeCompare(b.name))
-    .map(r => `<option value="${esc(r.name)}">${esc(r.fam||"")}</option>`).join("");
-}
+function fillAddItem(){ if(ddState.open==="add") openOrderDD(); else if(ddState.open==="qq") openQQDD(); }
 function resolveItem(typed){
   if(!typed) return null;
   let r = data.recipes.find(x => x.name === typed);                 // exact
@@ -780,6 +788,70 @@ function orderAdd(){
   render();
 }
 function orderClear(){ data.order = []; render(); }
+let ddState={open:null,idx:-1,items:[]};
+function qqCustomers(){ var l=(data.customers||[]).filter(function(c){return c.qq!==false;}); return l.length?l:(data.customers||[]); }
+function ddFilter(q){
+  q=(q||"").toLowerCase().trim();
+  var list=data.recipes.slice();
+  if(q) list=list.filter(function(r){return r.name.toLowerCase().indexOf(q)>=0;});
+  list.sort(function(a,b){return a.name.localeCompare(b.name);});
+  return list.slice(0,60);
+}
+function ddMeta(r){ return esc(r.fam||"")+" · "+esc(r.slot||""); }
+function openOrderDD(){
+  var inp=document.getElementById("addItem"), dd=document.getElementById("addDD"); if(!dd) return;
+  var list=ddFilter(inp.value); ddState={open:"add",idx:list.length?0:-1,items:list};
+  if(!list.length){ dd.innerHTML='<div class="dd-empty">No match — keep typing.</div>'; dd.style.display=""; return; }
+  var cust=activeCustomer();
+  dd.innerHTML=list.map(function(r,i){
+    var c=calc(r,cust.markup), cm=maxCraftable(r.name);
+    return '<div class="dd-row'+(i===ddState.idx?' active':'')+'" data-i="'+i+'" onmousedown="ddPick(\'add\','+i+')" onmouseover="ddHover('+i+')">'
+      +'<div style="display:flex;gap:8px;align-items:center">'
+      +'<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;color:var(--ink)">'+esc(r.name)+'</div>'
+      +'<div style="font-size:11px;color:var(--steel)">'+ddMeta(r)+'</div></div>'
+      +'<div style="text-align:right"><div style="font-size:13px;font-weight:600;color:var(--gold)">'+money(c.price)+'</div>'
+      +'<div style="font-size:11px;color:var('+(cm>0?'--good':'--ember')+')">make '+(cm>=1000000?'∞':cm)+'</div></div>'
+      +'</div></div>';
+  }).join("");
+  dd.style.display="";
+}
+function openQQDD(){
+  var inp=document.getElementById("qqItem"), dd=document.getElementById("qqDD"); if(!dd) return;
+  var list=ddFilter(inp.value); ddState={open:"qq",idx:list.length?0:-1,items:list};
+  var custs=qqCustomers();
+  var cols='minmax(0,1fr) '+custs.map(function(){return '70px';}).join(' ')+' 60px';
+  if(!list.length){ dd.innerHTML='<div class="dd-empty">No match — keep typing.</div>'; dd.style.display=""; return; }
+  var head='<div class="dd-head" style="display:grid;grid-template-columns:'+cols+';gap:6px"><span>Item</span>'
+    +custs.map(function(c){return '<span style="text-align:right">'+esc(c.name)+'</span>';}).join("")
+    +'<span style="text-align:right">Cost</span></div>';
+  var rows=list.map(function(r,i){
+    var base=calc(r);
+    var cells=custs.map(function(c){return '<span style="text-align:right;font-size:13px;font-weight:600;color:var(--gold)">'+money(calc(r,c.markup).price)+'</span>';}).join("");
+    return '<div class="dd-row'+(i===ddState.idx?' active':'')+'" data-i="'+i+'" onmousedown="ddPick(\'qq\','+i+')" onmouseover="ddHover('+i+')" style="display:grid;grid-template-columns:'+cols+';gap:6px;align-items:center">'
+      +'<div style="min-width:0"><div style="font-size:13px;font-weight:600;color:var(--ink)">'+esc(r.name)+'</div>'
+      +'<div style="font-size:11px;color:var(--steel)">'+ddMeta(r)+'</div></div>'
+      +cells+'<span style="text-align:right;font-size:12px;color:var(--dim)">'+exact(base.mat)+'</span></div>';
+  }).join("");
+  dd.innerHTML=head+rows; dd.style.display="";
+}
+function ddClose(){ ddState.open=null; var a=document.getElementById("addDD"),q=document.getElementById("qqDD"); if(a)a.style.display="none"; if(q)q.style.display="none"; }
+function ddHover(i){ ddState.idx=i; ddPaintActive(); }
+function ddPaintActive(){ var dd=document.getElementById(ddState.open==="qq"?"qqDD":"addDD"); if(!dd)return;
+  var rows=dd.querySelectorAll(".dd-row");
+  for(var k=0;k<rows.length;k++){ var on=(+rows[k].getAttribute("data-i")===ddState.idx); rows[k].classList.toggle("active",on); if(on)rows[k].scrollIntoView({block:"nearest"}); } }
+function ddPick(which,i){
+  var r=ddState.items[i]; if(!r) return;
+  if(which==="add"){ var qty=Math.max(1,parseInt(document.getElementById("addQty").value)||1); addToOrder(r.name,qty);
+    var inp=document.getElementById("addItem"); inp.value=""; ddClose(); render(); inp.focus(); }
+  else { var q=document.getElementById("qqItem"); q.value=r.name; ddClose(); render(); }
+}
+function ddKey(which,e){
+  if(ddState.open!==which){ if(e.key==="ArrowDown"){ (which==="add"?openOrderDD():openQQDD()); e.preventDefault(); } return; }
+  if(e.key==="ArrowDown"){ ddState.idx=Math.min(ddState.items.length-1,ddState.idx+1); ddPaintActive(); e.preventDefault(); }
+  else if(e.key==="ArrowUp"){ ddState.idx=Math.max(0,ddState.idx-1); ddPaintActive(); e.preventDefault(); }
+  else if(e.key==="Enter"){ if(ddState.idx>=0){ ddPick(which,ddState.idx); e.preventDefault(); } }
+  else if(e.key==="Escape"){ ddClose(); }
+}
 function renderQuote(){
   const el=document.getElementById("qqResult"); if(!el) return;
   const box=document.getElementById("qqItem"); const typed=((box&&box.value)||"").trim();
@@ -787,7 +859,7 @@ function renderQuote(){
   const r=resolveItem(typed);
   if(!r){ el.innerHTML='<span class="dim">No exact match yet — keep typing or pick from the list.</span>'; return; }
   const base=calc(r);
-  const rows=(data.customers||[]).map(c=>{
+  const rows=qqCustomers().map(c=>{
     const p=calc(r,c.markup).price, prof=p-base.mat;
     return '<tr><td>'+esc(c.name)+'</td><td class="n gold">'+money(p)+'</td><td class="n '+(prof>=0?'dim':'bad')+'">'+money(prof)+' profit</td></tr>';
   }).join("");
@@ -1542,11 +1614,12 @@ function renderCustomers(){
     <tr>
       <td><input class="bare" value="${esc(c.name)}" onchange="data.customers[${i}].name=this.value.trim()||'Customer'; render()"></td>
       <td class="n"><input class="bare n w60" type="number" min="0" step="0.1" value="${c.markup}" onchange="data.customers[${i}].markup=parseFloat(this.value)||0; render()"></td>
+      <td class="n"><input type="checkbox" ${c.qq!==false?'checked':''} title="Show this profile's price column in Quick Quote" onchange="data.customers[${i}].qq=this.checked; render()" style="width:auto"></td>
       <td><input class="bare" style="width:100%;min-width:180px" placeholder="what they like, haggling, debts…" value="${esc(c.note||'')}" onchange="data.customers[${i}].note=this.value; render()"></td>
       <td style="width:24px">${i===0?'<span class="pill" title="Sets the Database price">base</span>':`<button class="x" onclick="delCustomer(${i})">✕</button>`}</td>
     </tr>`).join("");
 }
-function addCustomer(){ data.customers.push({id:uid(),name:"New customer",markup:2,note:""}); render(); }
+function addCustomer(){ data.customers.push({id:uid(),name:"New customer",markup:2,note:"",qq:true}); render(); }
 function syncStackBox(){ const sb=document.getElementById("stackBulk"); if(sb) sb.checked = data.settings.stackBulk !== false; }
 function delCustomer(i){
   if(i===0) return;
