@@ -235,6 +235,7 @@
     <button id="t-recipes"   onclick="tab('recipes')">Recipes</button>
     <button id="t-settings"  onclick="tab('settings')">Settings</button>
   </nav>
+  <button class="b" onclick="lockApp()" title="Lock — return to the code screen" style="margin-left:10px">🔒 Lock</button>
 </div></div>
 
 <main>
@@ -1697,6 +1698,14 @@ function startApp(){
   document.body.classList.remove("locked");
   document.getElementById("gate").classList.add("hidden");
   if (!appStarted){ appStarted = true; render(); }
+}
+function lockApp(){
+  localStorage.removeItem(LK.code);              // forget the code so you can test another
+  document.getElementById("gateCode").value = "";
+  gmsg("", "dim");
+  document.getElementById("gate").classList.remove("hidden");
+  document.body.classList.add("locked");
+  const i = document.getElementById("gateCode"); if (i) i.focus();
 }
 
 /* ── Admin: entry ── */
