@@ -55,6 +55,26 @@
   input.bare:focus { background:var(--panel-2); border-color:var(--gold-2); }
   .w50{width:50px}.w60{width:60px}.w70{width:70px}.w80{width:80px}
 
+  /* Clean by default: strip the native browser number spinners everywhere. */
+  input[type=number]{ -moz-appearance:textfield; }
+  input[type=number]::-webkit-outer-spin-button,
+  input[type=number]::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
+
+  /* Flanking −/+ stepper for prominent standalone number fields. */
+  .step { display:inline-flex; align-items:stretch; gap:4px; vertical-align:middle; }
+  .step > input { text-align:right; }
+  .step > button {
+    flex:none; width:26px; padding:0; background:var(--panel-2); color:var(--ink);
+    border:1px solid var(--line); border-radius:5px; cursor:pointer;
+    font-size:15px; line-height:1; font-family:inherit;
+  }
+  .step > button:hover { border-color:var(--gold-2); color:var(--gold); }
+  .step > button:active { background:var(--panel-3); }
+  .step > button.c2 { width:23px; font-size:11px; letter-spacing:-1.5px; color:var(--dim); }
+  .step > button.c2:hover { color:var(--gold); border-color:var(--gold-2); }
+  /* Bare table inputs look cohesive once flanked by stepper buttons. */
+  .step > input.bare { border-color:var(--line); background:var(--panel-2); }
+
   button.b {
     background:var(--panel-2); color:var(--ink); border:1px solid var(--line);
     border-radius:5px; padding:4px 9px; cursor:pointer; font-size:12px; font-family:inherit; white-space:nowrap;
@@ -155,6 +175,7 @@
 <!-- ══ PREVIEW BANNER (shown only in ?demo mode) ══ -->
 <div id="demoBar">
   <span><span class="tag">Preview</span> &nbsp;Sample numbers — this is a live demo, nothing you change is saved.</span>
+  <a onclick="exitDemo()" style="cursor:pointer">← Back to login</a>
   <a href="https://discord.gg/cg4GT8Pd7" target="_blank" rel="noopener">Get access →</a>
 </div>
 
@@ -218,7 +239,11 @@
         <div class="row">
           <button class="b pri" onclick="adminAdvanceWeek()">Advance week ▸</button>
           <span class="dim" style="font-size:11px">set:</span>
-          <input id="wkSet" class="n w60" type="number" min="1" step="1">
+          <span class="step">
+            <button type="button" onclick="stepField(this,-1)" aria-label="Decrease week">−</button>
+            <input id="wkSet" class="n w60" type="number" min="1" step="1">
+            <button type="button" onclick="stepField(this,1)" aria-label="Increase week">+</button>
+          </span>
           <button class="b" onclick="adminSetWeek()">Set</button>
         </div>
       </div>
@@ -228,7 +253,11 @@
         <div class="row" style="flex-wrap:wrap">
           <input id="genNote" placeholder="buyer note (private, e.g. Ragnar)" spellcheck="false" style="min-width:180px;flex:1">
           <span class="dim" style="font-size:11px">weeks:</span>
-          <input id="genWeeks" class="n w60" type="number" min="1" step="1" value="1">
+          <span class="step">
+            <button type="button" onclick="stepField(this,-1)" aria-label="Decrease weeks">−</button>
+            <input id="genWeeks" class="n w60" type="number" min="1" step="1" value="1">
+            <button type="button" onclick="stepField(this,1)" aria-label="Increase weeks">+</button>
+          </span>
           <button class="b pri" onclick="genCode()">Generate</button>
         </div>
         <div id="genOut" class="codegen-out" style="display:none"></div>
@@ -291,8 +320,14 @@
           oninput="openOrderDD()" onkeydown="ddKey('add',event)" onblur="setTimeout(ddClose,150)">
         <div id="addDD" class="dd" style="display:none"></div>
       </span>
-      <input id="addQty" class="n w60" type="number" min="1" step="1" value="1"
-        onkeydown="if(event.key==='Enter')orderAdd()">
+      <span class="step">
+        <button type="button" class="c2" title="−10" onclick="stepField(this,-1,10)" aria-label="Decrease quantity by 10">−−</button>
+        <button type="button" onclick="stepField(this,-1)" aria-label="Decrease quantity">−</button>
+        <input id="addQty" class="n w60" type="number" min="1" step="1" value="1"
+          onkeydown="if(event.key==='Enter')orderAdd()">
+        <button type="button" onclick="stepField(this,1)" aria-label="Increase quantity">+</button>
+        <button type="button" class="c2" title="+10" onclick="stepField(this,1,10)" aria-label="Increase quantity by 10">++</button>
+      </span>
       <button class="b pri" onclick="orderAdd()">+ Add</button>
       <button class="b" onclick="orderClear()">Clear</button>
       <label class="row" style="gap:5px;margin-left:8px">Buyer
@@ -549,9 +584,9 @@
       <h3>Pricing</h3>
       <div class="knobs">
         <div class="k"><label>Currency</label><input id="currency" class="w60"></div>
-        <div class="k"><label>Default labor</label><input id="defaultLabor" class="n w70" type="number" min="0" step="1"></div>
+        <div class="k"><label>Default labor</label><span class="step"><button type="button" onclick="stepField(this,-1)" aria-label="Decrease default labor">−</button><input id="defaultLabor" class="n w70" type="number" min="0" step="1"><button type="button" onclick="stepField(this,1)" aria-label="Increase default labor">+</button></span></div>
         <div class="k" style="align-self:end"><span class="dim" style="font-size:11px">Markups are per-customer →</span></div>
-        <div class="k"><label>Round to</label><input id="roundTo" class="n w70" type="number" min="0" step="1"></div>
+        <div class="k"><label>Round to</label><span class="step"><button type="button" onclick="stepField(this,-1)" aria-label="Decrease round to">−</button><input id="roundTo" class="n w70" type="number" min="0" step="1"><button type="button" onclick="stepField(this,1)" aria-label="Increase round to">+</button></span></div>
       </div>
       <div class="note">Round to 0 disables rounding. Costs always show exact values.</div>
     </div>
@@ -857,6 +892,33 @@ function orderAdd(){
   render();
 }
 function orderClear(){ data.order = []; render(); }
+// −/+ flanking stepper: nudge the sibling <input> and fire its handlers.
+// amt overrides the input's own step (e.g. a coarse ±10 button, or ±0.1 where the field types finer).
+function stepField(btn, dir, amt){
+  const inp = btn.parentElement.querySelector("input");
+  if(!inp) return;
+  const step = (amt != null) ? amt : (parseFloat(inp.step) || 1);
+  const min = inp.min !== "" ? parseFloat(inp.min) : -Infinity;
+  const max = inp.max !== "" ? parseFloat(inp.max) : Infinity;
+  let v = (parseFloat(inp.value) || 0) + dir*step;
+  v = Math.min(max, Math.max(min, v));
+  inp.value = Math.round(v*1e6)/1e6;
+  inp.dispatchEvent(new Event("input", {bubbles:true}));
+  inp.dispatchEvent(new Event("change", {bubbles:true}));
+  inp.focus();
+}
+// Emit the left/right button markup for a stepper wrapped around an <input>.
+// fine = explicit fine amount (null → use the input's step); coarse = optional ±N outer pair.
+function stepPre(fine, coarse){
+  const fa = fine != null ? ("," + fine) : "";
+  const c = coarse ? `<button type="button" class="c2" title="−${coarse}" onclick="stepField(this,-1,${coarse})" aria-label="minus ${coarse}">−−</button>` : "";
+  return c + `<button type="button" onclick="stepField(this,-1${fa})" aria-label="decrease">−</button>`;
+}
+function stepPost(fine, coarse){
+  const fa = fine != null ? ("," + fine) : "";
+  const c = coarse ? `<button type="button" class="c2" title="+${coarse}" onclick="stepField(this,1,${coarse})" aria-label="plus ${coarse}">++</button>` : "";
+  return `<button type="button" onclick="stepField(this,1${fa})" aria-label="increase">+</button>` + c;
+}
 function activeBuyer(){ return (data.buyers||[]).find(b=>b.id===data.settings.buyer)||null; }
 function fillBuyerSel(){
   const sel=document.getElementById("buyerSel"); if(!sel) return;
@@ -1389,8 +1451,8 @@ function renderInventory(){
     return `<tr>
       <td>${esc(m.name)}</td>
       <td class="n dim">${exact(+m.price||0)}</td>
-      <td class="n"><input class="bare n w70" type="number" min="0" step="1" value="${+m.stock||0}"
-            onchange="data.materials[${i}].stock=parseFloat(this.value)||0; render()"></td>
+      <td class="n"><span class="step">${stepPre(null,10)}<input class="bare n w60" type="number" min="0" step="1" value="${+m.stock||0}"
+            onchange="data.materials[${i}].stock=parseFloat(this.value)||0; render()">${stepPost(null,10)}</span></td>
       <td class="n">${exact(v)}</td>
       <td class="n"><input class="n w60" type="number" min="0" step="1" placeholder="+"
             onchange="buyMat(${i},this.value); this.value=''"></td>
@@ -1404,8 +1466,8 @@ function renderInventory(){
     return `<tr>
       <td class="steel">${esc(it.name)}</td>
       <td class="n dim">${exact(c)}</td>
-      <td class="n"><input class="bare n w70" type="number" min="0" step="1" value="${+it.stock||0}"
-            onchange="data.intermediates[${i}].stock=parseFloat(this.value)||0; render()"></td>
+      <td class="n"><span class="step">${stepPre(null,10)}<input class="bare n w60" type="number" min="0" step="1" value="${+it.stock||0}"
+            onchange="data.intermediates[${i}].stock=parseFloat(this.value)||0; render()">${stepPost(null,10)}</span></td>
       <td class="n">${exact(v)}</td>
     </tr>`;
   }).join("");
@@ -1635,8 +1697,8 @@ function renderMatEditor(){
   document.getElementById("matBody").innerHTML = data.materials.map((m,i) => `
     <tr>
       <td><input class="bare" value="${esc(m.name)}" onchange="renameMat(${i},this.value)"></td>
-      <td class="n"><input class="bare n w80" type="number" min="0" step="0.01" value="${m.price}"
-            onchange="data.materials[${i}].price=parseFloat(this.value)||0; render()"></td>
+      <td class="n"><span class="step">${stepPre(0.1)}<input class="bare n w70" type="number" min="0" step="0.01" value="${m.price}"
+            onchange="data.materials[${i}].price=parseFloat(this.value)||0; render()">${stepPost(0.1)}</span></td>
       <td style="width:24px"><button class="x" onclick="delMat(${i})">✕</button></td>
     </tr>`).join("");
 }
@@ -1744,10 +1806,10 @@ function renderTiers(){
     .map((t) => {
       const i = data.settings.tiers.indexOf(t);
       return `<tr>
-        <td class="n"><input class="bare n w60" type="number" min="1" step="1" value="${t.qty}"
-              onchange="data.settings.tiers[${i}].qty=parseFloat(this.value)||0; render()"></td>
-        <td class="n"><input class="bare n w60" type="number" min="0" max="100" step="1" value="${t.pct}"
-              onchange="data.settings.tiers[${i}].pct=parseFloat(this.value)||0; render()"></td>
+        <td class="n"><span class="step">${stepPre(null,10)}<input class="bare n w50" type="number" min="1" step="1" value="${t.qty}"
+              onchange="data.settings.tiers[${i}].qty=parseFloat(this.value)||0; render()">${stepPost(null,10)}</span></td>
+        <td class="n"><span class="step">${stepPre()}<input class="bare n w50" type="number" min="0" max="100" step="1" value="${t.pct}"
+              onchange="data.settings.tiers[${i}].pct=parseFloat(this.value)||0; render()">${stepPost()}</span></td>
         <td style="width:24px"><button class="x" onclick="delTier(${i})">✕</button></td>
       </tr>`;
     }).join("") || `<tr><td colspan="3" class="empty">No tiers — no bulk discount applied.</td></tr>`;
@@ -1760,7 +1822,7 @@ function renderCustomers(){
   b.innerHTML=(data.customers||[]).map((c,i)=>`
     <tr>
       <td><input class="bare" value="${esc(c.name)}" onchange="data.customers[${i}].name=this.value.trim()||'Customer'; render()"></td>
-      <td class="n"><input class="bare n w60" type="number" min="0" step="0.1" value="${c.markup}" onchange="data.customers[${i}].markup=parseFloat(this.value)||0; render()"></td>
+      <td class="n"><span class="step">${stepPre()}<input class="bare n w50" type="number" min="0" step="0.1" value="${c.markup}" onchange="data.customers[${i}].markup=parseFloat(this.value)||0; render()">${stepPost()}</span></td>
       <td class="n"><input type="checkbox" ${c.qq!==false?'checked':''} title="Show this profile's price column in Quick Quote" onchange="data.customers[${i}].qq=this.checked; render()" style="width:auto"></td>
       <td><input class="bare" style="width:100%;min-width:180px" placeholder="what they like, haggling, debts…" value="${esc(c.note||'')}" onchange="data.customers[${i}].note=this.value; render()"></td>
       <td style="width:24px">${i===0?'<span class="pill" title="Sets the Database price">base</span>':`<button class="x" onclick="delCustomer(${i})">✕</button>`}</td>
@@ -1891,6 +1953,24 @@ function startDemo(){
   const a = document.getElementById("admin"); if (a) a.classList.add("hidden");
   document.getElementById("gate").classList.add("hidden");
   if (!appStarted){ appStarted = true; render(); }
+}
+
+function exitDemo(){
+  IS_DEMO = false;                // leave no-save/sample mode; real gate logic applies again
+  document.body.classList.remove("demo");
+  data = load();                  // back to the real book (localStorage/defaults), not the sample sheet
+  appStarted = false;             // let startApp() render the real book fresh
+  // Drop ?demo from the URL so a reload lands on the gate, not back in preview.
+  // Guarded: replaceState throws on sandboxed data:/file: origins (dev preview only).
+  try {
+    if (history.replaceState && location.search.includes("demo")){
+      const u = new URL(location.href); u.searchParams.delete("demo");
+      history.replaceState(null, "", u.pathname + u.search + u.hash);
+    }
+  } catch(e){ /* harmless: URL just keeps ?demo in the sandboxed preview */ }
+  document.getElementById("gate").classList.remove("hidden");
+  gmsg("", "dim");
+  bootGate();                     // re-run the gate: honour a saved code, else offer the dev bypass
 }
 
 async function bootGate(){
