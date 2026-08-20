@@ -1,42 +1,42 @@
-# Keisaal Smithy — hosting & access setup
+# Keisaal Smithy — live site & running it
 
-The calculator now opens behind an **access gate**. Users need a code you sell; you manage
-everything from a built-in **admin panel**. Access lives in `status.json`, published next to
-the page on GitHub. Fail-closed: no reachable `status.json` = no access.
+**Live URL:** https://ipaintz.github.io/keisaal-calculator/
+**Repo:** https://github.com/IPaintZ/keisaal-calculator (public)
+
+The calculator opens behind an **access gate**. Users need a weekly code you sell. You manage
+everything from the built-in **admin panel**. Access lives in `status.json` next to the page.
+Fail-closed: if `status.json` can't be reached, nobody gets in.
+
+The shipped database has the full item/recipe catalog but **zero pricing** — every visitor fills
+in their own prices, saved in their own browser (`localStorage`). Nothing they enter touches anyone else.
 
 ---
 
-## 1. Put it on GitHub Pages (free)
+## Admin passphrase
 
-1. Create a **public** GitHub repo (e.g. `keisaal`).
-2. Upload two files to the repo root:
-   - `keisaal-calculator.html` — **rename it to `index.html`** so the URL is clean.
-   - `status.json` (the starter file — week 1, no codes).
-3. Repo **Settings → Pages** → *Build and deployment* → **Deploy from a branch** → `main` / `/root` → Save.
-4. Wait ~1 min, then open `https://YOUR-NAME.github.io/keisaal/`. You should see the access gate.
+    frost-cinder-frost-94
 
-> Public repo is fine: the page only ever ships **hashes**, never real codes or your token.
+Only its hash is in the source, so this is safe to ship publicly. To change it, tell Claude a new
+passphrase and it'll re-bake the hash. Note: even the passphrase is a courtesy lock — the panel is
+**powerless without your GitHub token**, which never leaves your browser.
 
-## 2. Make a GitHub token (one time)
+## One-time: make a GitHub token
 
 1. GitHub → **Settings → Developer settings → Fine-grained tokens → Generate new token**.
-2. **Repository access → Only select repositories →** pick just this repo.
-3. **Repository permissions → Contents → Read and write**. (Nothing else.)
-4. Generate, copy the `github_pat_…` string.
+2. **Repository access → Only select repositories →** `keisaal-calculator`.
+3. **Repository permissions → Contents → Read and write**. Nothing else.
+4. Generate and copy the `github_pat_…` string.
 
-The token is entered into the admin panel and stored **only in your browser** — it is never in
-the file, so a visitor can never see it.
+## One-time: connect the admin panel
 
-## 3. First run of the admin panel
+Do this **on the live https site** (GitHub blocks writes from a local file).
 
-Do admin **on the live https site** (GitHub's API blocks writes from a local file).
-
-1. Open your Pages URL → click **admin** at the bottom of the gate.
-2. **Create an admin passphrase** (first time — remembered in this browser).
-3. Fill in: Owner = your GitHub name, Repository = repo name, Branch = `main`, Path = `status.json`,
-   and paste your **token**. Click **Save settings**, then **Load from GitHub**.
+1. Open the live URL → click **admin** at the bottom of the gate.
+2. Passphrase: `frost-cinder-frost-94`.
+3. Fill in: Owner = `IPaintZ`, Repository = `keisaal-calculator`, Branch = `main`,
+   Path = `status.json`, and paste your **token**. Click **Save settings** → **Load from GitHub**.
 4. **Generate** a code for yourself → **Publish to GitHub**.
-5. Close admin, **Unlock** with that code. You're in.
+5. Close admin and **Unlock** with that code.
 
 ---
 
@@ -44,20 +44,28 @@ Do admin **on the live https site** (GitHub's API blocks writes from a local fil
 
 | Task | Steps |
 |------|-------|
-| **Weekly reset** | admin → **Advance week ▸** → **Publish**. Every code paid only through last week dies. |
-| **Sell access** | admin → type a buyer note + weeks paid → **Generate** → copy code to buyer → **Publish**. |
+| **Weekly reset** | admin → **Advance week ▸** → **Publish**. Codes paid only through last week die. |
+| **Sell access** | admin → buyer note + weeks paid → **Generate** → send code to buyer → **Publish**. |
 | **Revoke a leaker** | admin → **✕** on their row → **Publish**. Locked out within a minute. |
 | **Lock everyone** | admin → **Kill switch** → **Publish**. |
 | **Backup** | admin → **Download backup** (your codes + private buyer notes). |
 
-Buyer notes stay **local to your browser** (never published), so no player names leak into the
-public file. Keep a backup, and always run admin from the same browser.
+Buyer notes stay local to your browser (never published), so no names leak into the public file.
+Always run admin from the same browser, and keep a backup.
+
+## Updating the tool later
+
+Edit `index.html` and push:
+
+```bash
+git add index.html && git commit -m "update" && git push
+```
 
 ## Honest limits
 
-- This is friction for an honest game community, **not** unbreakable DRM. Because everything runs
-  in the browser, a determined person who reads the source can bypass the gate. The design keeps
-  your **secret (token) off the page** and stores only **un-reversible hashes**, so nobody can mint
-  valid codes or read others' codes — but the tool's logic itself is visible in a public repo.
-- The clock-rollback trick doesn't work: validity is decided by the week number in *your* hosted
-  file, not the user's PC clock.
+- Friction for an honest game community, not unbreakable DRM: the tool's logic is visible in a
+  public repo, so someone who reads the source could bypass the gate. What's protected: your token
+  never ships, and only un-reversible SHA-256 hashes are published — nobody can mint valid codes,
+  read anyone's code, or use the admin panel against your repo.
+- Clock-rollback doesn't work: validity is decided by the week number in your hosted file, not the
+  user's PC clock.
